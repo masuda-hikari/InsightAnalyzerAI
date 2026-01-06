@@ -133,19 +133,24 @@ Python 3.11+
 
 ## 📅 開発フェーズ
 
-### Phase 1: MVP（現在）
-- [ ] CSV読み込み・基本統計
-- [ ] CLI版インターフェース
-- [ ] 単純なクエリ処理（カラム合計、平均等）
+### Phase 1: MVP ✅完了
+- [x] CSV読み込み・基本統計（DataLoader）
+- [x] CLI版インターフェース（insight_analyzer.py main()）
+- [x] 単純なクエリ処理（QueryParser + QueryExecutor）
+- [x] モジュール分離（query_parser, executor, visualizer）
+- [x] 実行時間計測・確信度スコア
+- [x] 基本チャート生成（Matplotlib）
 
-### Phase 2: LLM統合
+### Phase 2: LLM統合（次）
 - [ ] OpenAI API統合
 - [ ] 自然言語→Pandasコード変換
 - [ ] 結果の自然言語説明生成
 
-### Phase 3: 可視化
-- [ ] Matplotlib/Plotlyによるチャート生成
-- [ ] チャートタイプ自動選択
+### Phase 3: 可視化拡張
+- [x] Matplotlibによるチャート生成（基本実装済み）
+- [x] チャートタイプ自動選択（基本実装済み）
+- [ ] Plotlyインタラクティブチャート
+- [ ] より高度な可視化オプション
 
 ### Phase 4: Web UI
 - [ ] Streamlitベースのインターフェース

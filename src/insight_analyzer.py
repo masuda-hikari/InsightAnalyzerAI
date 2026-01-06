@@ -4,14 +4,16 @@ InsightAnalyzerAI メインモジュール
 自然言語クエリを受け付け、データ分析を実行する
 """
 
-import os
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Optional, Union
 from dataclasses import dataclass
 
 import pandas as pd
 
 from .data_loader import DataLoader
+from .query_parser import QueryParser, ParsedQuery, QueryType
+from .executor import QueryExecutor, SafeExecutor, ExecutionResult
+from .visualizer import Visualizer, ChartConfig, ChartResult
 
 
 @dataclass
@@ -23,6 +25,8 @@ class AnalysisResult:
     query_used: Optional[str] = None
     success: bool = True
     error: Optional[str] = None
+    execution_time_ms: float = 0.0
+    confidence: float = 1.0
 
 
 class InsightAnalyzer:
@@ -30,15 +34,25 @@ class InsightAnalyzer:
     メイン分析クラス
 
     データを読み込み、自然言語クエリに基づいて分析を実行する
+
+    アーキテクチャ:
+        DataLoader -> QueryParser -> QueryExecutor -> Visualizer
     """
 
-    def __init__(self, data_source: Optional[Union[str, Path, pd.DataFrame]] = None):
+    def __init__(
+        self,
+        data_source: Optional[Union[str, Path, pd.DataFrame]] = None,
+        output_dir: Optional[str] = None,
+    ):
         """
         Args:
             data_source: CSVパス、またはDataFrame
+            output_dir: チャート出力ディレクトリ
         """
         self._loader = DataLoader()
         self._df: Optional[pd.DataFrame] = None
+        self._parser: Optional[QueryParser] = None
+        self._visualizer = Visualizer(output_dir)
 
         if data_source is not None:
             self.load_data(data_source)
@@ -52,8 +66,15 @@ class InsightAnalyzer:
         """
         if isinstance(source, pd.DataFrame):
             self._df = source
+            # DataFrameから直接読み込んだ場合、loaderのメタデータを更新
+            self._loader._dataframe = source
+            self._loader._update_metadata()
         else:
             self._df = self._loader.load(source)
+
+        # パーサーを初期化
+        self._parser = QueryParser()
+        self._parser.set_schema(self._df)
 
     @property
     def dataframe(self) -> Optional[pd.DataFrame]:
@@ -65,12 +86,22 @@ class InsightAnalyzer:
         """データスキーマを取得"""
         return self._loader.get_schema()
 
-    def ask(self, question: str) -> AnalysisResult:
+    @property
+    def metadata(self) -> dict:
+        """データのメタデータを取得"""
+        return self._loader.metadata
+
+    def ask(
+        self,
+        question: str,
+        generate_chart: bool = False,
+    ) -> AnalysisResult:
         """
         自然言語で質問し、分析結果を取得
 
         Args:
             question: 自然言語の質問
+            generate_chart: チャートを生成するか
 
         Returns:
             分析結果
@@ -82,38 +113,40 @@ class InsightAnalyzer:
                 error="データが読み込まれていません。load_data()でデータを読み込んでください。"
             )
 
-        # Phase 1: 簡易的なキーワードベース処理
-        # TODO: Phase 2でLLM統合に置き換え
-
-        question_lower = question.lower()
-
         try:
-            # 合計を求める
-            if "合計" in question or "total" in question_lower or "sum" in question_lower:
-                result = self._calculate_sum(question)
-                return result
+            # 1. クエリ解析
+            parsed = self._parser.parse(question)
 
-            # 平均を求める
-            if "平均" in question or "average" in question_lower or "mean" in question_lower:
-                result = self._calculate_mean(question)
-                return result
+            # 2. クエリ実行
+            executor = SafeExecutor(self._df)
+            exec_result = executor.execute_safe(parsed)
 
-            # 件数を数える
-            if "件数" in question or "count" in question_lower or "何件" in question:
-                result = self._calculate_count(question)
-                return result
+            if not exec_result.success:
+                return AnalysisResult(
+                    answer="",
+                    success=False,
+                    error=exec_result.error,
+                    execution_time_ms=exec_result.execution_time_ms,
+                )
 
-            # グループ別集計
-            if "別" in question or "ごと" in question or "by" in question_lower:
-                result = self._calculate_groupby(question)
-                return result
+            # 3. 回答生成
+            answer = self._format_answer(parsed, exec_result)
 
-            # デフォルト: 基本統計
-            stats = self._df.describe()
+            # 4. チャート生成（オプション）
+            chart_path = None
+            if generate_chart and exec_result.data is not None:
+                chart_result = self._generate_chart(parsed, exec_result.data)
+                if chart_result.success:
+                    chart_path = chart_result.file_path
+
             return AnalysisResult(
-                answer=f"データの基本統計:\n{stats.to_string()}",
-                data=stats,
-                query_used="df.describe()"
+                answer=answer,
+                data=exec_result.data,
+                chart_path=chart_path,
+                query_used=exec_result.query_code,
+                success=True,
+                execution_time_ms=exec_result.execution_time_ms,
+                confidence=parsed.confidence,
             )
 
         except Exception as e:
@@ -123,132 +156,125 @@ class InsightAnalyzer:
                 error=f"分析中にエラーが発生しました: {str(e)}"
             )
 
-    def _find_numeric_column(self, question: str) -> Optional[str]:
-        """質問から数値カラムを推定"""
-        numeric_cols = self._df.select_dtypes(include=['number']).columns
+    def _format_answer(
+        self,
+        parsed: ParsedQuery,
+        result: ExecutionResult,
+    ) -> str:
+        """実行結果を自然言語の回答にフォーマット"""
+        query_type = parsed.query_type
 
-        for col in numeric_cols:
-            if col.lower() in question.lower() or col in question:
-                return col
+        # スカラー値の場合
+        if result.value is not None:
+            value = result.value
+            col = parsed.target_column or "値"
 
-        # 見つからない場合は最初の数値カラム
-        return numeric_cols[0] if len(numeric_cols) > 0 else None
-
-    def _find_category_column(self, question: str) -> Optional[str]:
-        """質問からカテゴリカラムを推定"""
-        # 「地域別」「製品別」などのパターンを検出
-        keywords = {
-            "地域": "region",
-            "製品": "product",
-            "商品": "product",
-            "担当": "salesperson",
-            "月": "date",
-        }
-
-        for jp_key, en_col in keywords.items():
-            if jp_key in question:
-                for col in self._df.columns:
-                    if en_col in col.lower() or jp_key in col:
-                        return col
-
-        # カテゴリ型カラムを返す
-        cat_cols = self._df.select_dtypes(include=['object']).columns
-        return cat_cols[0] if len(cat_cols) > 0 else None
-
-    def _calculate_sum(self, question: str) -> AnalysisResult:
-        """合計を計算"""
-        col = self._find_numeric_column(question)
-        if col is None:
-            return AnalysisResult(
-                answer="数値カラムが見つかりません",
-                success=False,
-                error="数値カラムが見つかりません"
+            # 金額判定
+            is_currency = col and any(
+                kw in col.lower() for kw in ["price", "sales", "金額", "売上"]
             )
 
-        total = self._df[col].sum()
-        query = f"df['{col}'].sum()"
+            if query_type == QueryType.SUM:
+                if is_currency:
+                    return f"{col}の合計: ¥{value:,.0f}"
+                return f"{col}の合計: {value:,.2f}"
 
-        # 金額の場合はフォーマット
-        if "price" in col.lower() or "sales" in col.lower() or "金額" in col:
-            answer = f"{col}の合計: ¥{total:,.0f}"
-        else:
-            answer = f"{col}の合計: {total:,.2f}"
+            elif query_type == QueryType.MEAN:
+                if is_currency:
+                    return f"{col}の平均: ¥{value:,.0f}"
+                return f"{col}の平均: {value:,.2f}"
 
-        return AnalysisResult(
-            answer=answer,
-            data=pd.DataFrame({col: [total]}, index=['合計']),
-            query_used=query
+            elif query_type == QueryType.COUNT:
+                return f"データ件数: {value:,}件"
+
+        # DataFrame結果の場合
+        if result.data is not None:
+            if query_type == QueryType.GROUPBY:
+                return self._format_groupby_answer(parsed, result.data)
+
+            elif query_type == QueryType.DESCRIBE:
+                return f"データの基本統計:\n{result.data.to_string()}"
+
+            else:
+                return result.data.to_string()
+
+        return "結果を取得できませんでした"
+
+    def _format_groupby_answer(
+        self,
+        parsed: ParsedQuery,
+        data: pd.DataFrame,
+    ) -> str:
+        """グループ別集計結果をフォーマット"""
+        group_col = parsed.group_column or "カテゴリ"
+        target_col = parsed.target_column
+
+        # 金額判定
+        is_currency = target_col and any(
+            kw in target_col.lower() for kw in ["price", "sales", "金額", "売上"]
         )
 
-    def _calculate_mean(self, question: str) -> AnalysisResult:
-        """平均を計算"""
-        col = self._find_numeric_column(question)
-        if col is None:
-            return AnalysisResult(
-                answer="数値カラムが見つかりません",
-                success=False,
-                error="数値カラムが見つかりません"
-            )
-
-        mean = self._df[col].mean()
-        query = f"df['{col}'].mean()"
-
-        if "price" in col.lower() or "sales" in col.lower() or "金額" in col:
-            answer = f"{col}の平均: ¥{mean:,.0f}"
+        if target_col:
+            lines = [f"{group_col}別の{target_col}合計:"]
         else:
-            answer = f"{col}の平均: {mean:,.2f}"
+            lines = [f"{group_col}別の件数:"]
 
-        return AnalysisResult(
-            answer=answer,
-            data=pd.DataFrame({col: [mean]}, index=['平均']),
-            query_used=query
-        )
-
-    def _calculate_count(self, question: str) -> AnalysisResult:
-        """件数を計算"""
-        count = len(self._df)
-
-        return AnalysisResult(
-            answer=f"データ件数: {count:,}件",
-            data=pd.DataFrame({'count': [count]}, index=['件数']),
-            query_used="len(df)"
-        )
-
-    def _calculate_groupby(self, question: str) -> AnalysisResult:
-        """グループ別集計"""
-        cat_col = self._find_category_column(question)
-        num_col = self._find_numeric_column(question)
-
-        if cat_col is None:
-            return AnalysisResult(
-                answer="グループ化するカラムが見つかりません",
-                success=False,
-                error="カテゴリカラムが見つかりません"
-            )
-
-        if num_col is None:
-            # 件数でグループ化
-            grouped = self._df.groupby(cat_col).size().sort_values(ascending=False)
-            query = f"df.groupby('{cat_col}').size()"
-            answer = f"{cat_col}別の件数:\n{grouped.to_string()}"
-        else:
-            # 合計でグループ化
-            grouped = self._df.groupby(cat_col)[num_col].sum().sort_values(ascending=False)
-            query = f"df.groupby('{cat_col}')['{num_col}'].sum()"
-
-            lines = [f"{cat_col}別の{num_col}合計:"]
-            for idx, val in grouped.items():
-                if "price" in num_col.lower() or "sales" in num_col.lower():
+        # DataFrameまたはSeriesからデータ取得
+        if isinstance(data, pd.DataFrame) and len(data.columns) > 0:
+            col = data.columns[0]
+            for idx, row in data.iterrows():
+                val = row[col]
+                if is_currency:
                     lines.append(f"  {idx}: ¥{val:,.0f}")
                 else:
                     lines.append(f"  {idx}: {val:,.2f}")
-            answer = "\n".join(lines)
+        else:
+            for idx, val in data.items():
+                if is_currency:
+                    lines.append(f"  {idx}: ¥{val:,.0f}")
+                else:
+                    lines.append(f"  {idx}: {val:,.2f}")
 
-        return AnalysisResult(
-            answer=answer,
-            data=grouped.to_frame(),
-            query_used=query
-        )
+        return "\n".join(lines)
+
+    def _generate_chart(
+        self,
+        parsed: ParsedQuery,
+        data: pd.DataFrame,
+    ) -> ChartResult:
+        """クエリ結果からチャートを生成"""
+        title = parsed.original_question
+        config = ChartConfig(title=title)
+
+        return self._visualizer.create_chart(data, config)
+
+    def get_summary(self) -> AnalysisResult:
+        """データの要約を取得"""
+        return self.ask("データの概要を教えて")
+
+    def get_insights(self) -> list[str]:
+        """
+        自動インサイト生成（Phase 5で拡張予定）
+
+        現在は基本的な統計情報のみ
+        """
+        if self._df is None:
+            return ["データが読み込まれていません"]
+
+        insights = []
+
+        # 基本情報
+        insights.append(f"データ件数: {len(self._df):,}件")
+        insights.append(f"カラム数: {len(self._df.columns)}列")
+
+        # 数値カラムの統計
+        numeric_cols = self._df.select_dtypes(include=["number"]).columns
+        for col in numeric_cols[:3]:  # 最大3カラム
+            total = self._df[col].sum()
+            mean = self._df[col].mean()
+            insights.append(f"{col}: 合計 {total:,.0f}, 平均 {mean:,.0f}")
+
+        return insights
 
 
 def main():
@@ -258,9 +284,13 @@ def main():
     if len(sys.argv) < 2:
         print("使用方法: python -m src.insight_analyzer <データファイル>")
         print("例: python -m src.insight_analyzer data/sample_sales.csv")
+        print()
+        print("オプション:")
+        print("  --chart  チャートも生成する")
         sys.exit(1)
 
     file_path = sys.argv[1]
+    generate_chart = "--chart" in sys.argv
 
     print(f"データを読み込み中: {file_path}")
     analyzer = InsightAnalyzer(file_path)
@@ -269,23 +299,40 @@ def main():
     print("スキーマ:")
     print(analyzer.schema)
     print()
-    print("質問を入力してください（終了: quit）")
+
+    # 自動インサイト表示
+    print("自動インサイト:")
+    for insight in analyzer.get_insights():
+        print(f"  - {insight}")
+    print()
+
+    print("質問を入力してください（終了: quit, チャート生成: chart）")
     print("-" * 50)
 
     while True:
         try:
             question = input("> ").strip()
-            if question.lower() in ('quit', 'exit', 'q'):
+
+            if question.lower() in ("quit", "exit", "q"):
                 break
             if not question:
                 continue
 
-            result = analyzer.ask(question)
+            # チャート生成オプション
+            with_chart = generate_chart or question.lower().startswith("chart ")
+            if question.lower().startswith("chart "):
+                question = question[6:].strip()
+
+            result = analyzer.ask(question, generate_chart=with_chart)
 
             if result.success:
                 print(result.answer)
                 if result.query_used:
-                    print(f"[実行クエリ: {result.query_used}]")
+                    print(f"[クエリ: {result.query_used}]")
+                if result.execution_time_ms > 0:
+                    print(f"[実行時間: {result.execution_time_ms:.2f}ms]")
+                if result.chart_path:
+                    print(f"[チャート: {result.chart_path}]")
             else:
                 print(f"エラー: {result.error}")
 

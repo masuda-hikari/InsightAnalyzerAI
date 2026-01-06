@@ -151,7 +151,7 @@ class TestEdgeCases:
 
         result = analyzer.ask("合計")
         # 数値カラムがないのでエラー
-        assert result.success is False or "見つかりません" in result.answer
+        assert result.success is False or "見つかりません" in str(result.error or result.answer)
 
     def test_no_numeric_columns(self):
         """数値カラムなし"""
@@ -162,4 +162,45 @@ class TestEdgeCases:
         analyzer = InsightAnalyzer(df)
 
         result = analyzer.ask("合計")
-        assert result.success is False or "見つかりません" in result.answer
+        assert result.success is False or "見つかりません" in str(result.error or result.answer)
+
+
+class TestNewArchitecture:
+    """新アーキテクチャのテスト"""
+
+    @pytest.fixture
+    def analyzer(self) -> InsightAnalyzer:
+        """テスト用Analyzer"""
+        df = pd.DataFrame({
+            "region": ["東京", "大阪", "名古屋"],
+            "sales": [1000, 2000, 1500],
+            "quantity": [10, 20, 15],
+        })
+        return InsightAnalyzer(df)
+
+    def test_execution_time_recorded(self, analyzer: InsightAnalyzer):
+        """実行時間が記録される"""
+        result = analyzer.ask("合計")
+        assert result.execution_time_ms >= 0
+
+    def test_confidence_score(self, analyzer: InsightAnalyzer):
+        """確信度スコアが記録される"""
+        result = analyzer.ask("salesの合計")
+        assert 0.0 <= result.confidence <= 1.0
+
+    def test_get_insights(self, analyzer: InsightAnalyzer):
+        """自動インサイト生成"""
+        insights = analyzer.get_insights()
+        assert len(insights) > 0
+        assert any("件" in i for i in insights)
+
+    def test_get_summary(self, analyzer: InsightAnalyzer):
+        """サマリー取得"""
+        result = analyzer.get_summary()
+        assert result.success is True
+
+    def test_metadata_property(self, analyzer: InsightAnalyzer):
+        """メタデータプロパティ"""
+        metadata = analyzer.metadata
+        assert "rows" in metadata
+        assert metadata["rows"] == 3

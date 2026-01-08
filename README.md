@@ -1,9 +1,9 @@
-# InsightAnalyzerAI
+﻿# InsightAnalyzerAI
 
-AI駆動のデータ分析アシスタント - 自然言語でデータに質問し、即座にインサイトを得る
+AI駆動のデータ分析アシスタント
+- 自然言語でデータに質問し、即座にインサイトを得る
 
 ## 概要
-
 InsightAnalyzerAIは、データセットをアップロードして自然言語で質問するだけで、AIが適切な分析を実行し結果を返すツールです。データアナリストがいなくても、誰でもデータから価値ある情報を引き出せます。
 
 ## 機能
@@ -11,10 +11,9 @@ InsightAnalyzerAIは、データセットをアップロードして自然言語
 - **自然言語クエリ**: 「先月の地域別売上合計は？」のような質問に回答
 - **自動分析**: データのパターンや異常値を自動検出
 - **可視化**: 適切なチャートを自動生成
-- **レポート生成**: 分析結果を分かりやすいレポートに
+- **レポート生成**: 分析結果をわかりやすいレポートに
 
 ## 使用例
-
 ```python
 from insight_analyzer import InsightAnalyzer
 
@@ -22,9 +21,9 @@ from insight_analyzer import InsightAnalyzer
 analyzer = InsightAnalyzer("sales_data.csv")
 
 # 自然言語で質問
-result = analyzer.ask("先四半期の地域別売上の内訳を教えて")
+result = analyzer.ask("先月期の地域別売上の内訳を教えて")
 print(result.answer)
-# => "先四半期の地域別売上: 東京 ¥12.5M, 大阪 ¥8.2M, 名古屋 ¥5.1M..."
+# => "先月期の地域別売上: 東京 ¥12.5M, 大阪 ¥8.2M, 名古屋 ¥5.1M..."
 
 # チャート生成
 result.show_chart()
@@ -38,15 +37,13 @@ result.show_chart()
 - **スタートアップ**: リソースなしでデータドリブン意思決定
 
 ## 価値提案
-
 **月額¥2,980で専門アナリスト相当の分析力**
 
 従来、データ分析には専門知識を持つアナリストが必要でした。InsightAnalyzerAIを使えば：
-
 - SQL/Pythonの知識不要
 - 数秒で回答を取得
 - 24時間いつでも利用可能
-- 人件費の大幅削減（アナリスト採用 vs ツール利用）
+- 人件費の大幅削減（アナリスト雇用 vs ツール利用）
 
 ## インストール
 
@@ -55,7 +52,6 @@ pip install -r requirements.txt
 ```
 
 ## クイックスタート
-
 ```bash
 # CLIモード
 python -m src.insight_analyzer data/sample_sales.csv
@@ -69,13 +65,12 @@ Total Sales: ¥45,800,000
 ```
 
 ## 料金プラン（SaaS版）
-
 | プラン | 月額 | 機能 |
 |--------|------|------|
 | Free | ¥0 | 1MB制限, 10クエリ/日 |
 | Basic | ¥2,980 | 50MB, 100クエリ/日, チャート |
 | Pro | ¥9,800 | 500MB, 無制限, API連携 |
-| Enterprise | 要相談 | オンプレミス, カスタム |
+| Enterprise | 要見積 | オンプレミス, カスタム |
 
 ## 現在のステータス
 
@@ -94,7 +89,6 @@ Total Sales: ¥45,800,000
 ## 貢献
 
 現在は非公開開発中です。
-
 ---
 
 **InsightAnalyzerAI** - データの力を、すべての人に。

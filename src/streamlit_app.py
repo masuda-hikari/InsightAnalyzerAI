@@ -3,6 +3,7 @@ InsightAnalyzerAI - Streamlit Web UI
 
 データ分析を自然言語で行えるWebインターフェース
 Phase 4: Web UI実装
+Phase 5: 認証・課金統合
 """
 
 import streamlit as st
@@ -17,6 +18,8 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.insight_analyzer import InsightAnalyzer, AnalysisResult
+from src.auth import AuthManager, PlanType, render_auth_ui
+from src.billing import render_pricing_ui, render_billing_status
 
 
 # ページ設定
@@ -36,11 +39,23 @@ def init_session_state():
         st.session_state.history = []
     if "data_loaded" not in st.session_state:
         st.session_state.data_loaded = False
+    if "auth_manager" not in st.session_state:
+        st.session_state.auth_manager = AuthManager()
 
 
 def load_data_from_file(uploaded_file) -> bool:
     """アップロードされたファイルからデータを読み込む"""
     try:
+        # 認証マネージャーを取得
+        auth_manager = st.session_state.auth_manager
+
+        # ファイルサイズチェック
+        file_size = uploaded_file.size
+        can_upload, message = auth_manager.can_upload_file(file_size)
+        if not can_upload:
+            st.error(message)
+            return False
+
         # ファイル拡張子を取得
         file_name = uploaded_file.name
         file_ext = Path(file_name).suffix.lower()
@@ -56,10 +71,16 @@ def load_data_from_file(uploaded_file) -> bool:
             st.error(f"サポートされていないファイル形式です: {file_ext}")
             return False
 
+        # LLM使用可否をプランから判定
+        use_llm = auth_manager.can_use_llm()
+
         # Analyzerを初期化
-        st.session_state.analyzer = InsightAnalyzer(df, use_llm=True)
+        st.session_state.analyzer = InsightAnalyzer(df, use_llm=use_llm)
         st.session_state.data_loaded = True
         st.session_state.file_name = file_name
+
+        # ファイルアップロードを記録
+        auth_manager.usage_tracker.add_file_upload(file_size)
 
         return True
 
@@ -122,11 +143,26 @@ def process_query(question: str, generate_chart: bool, explain_result: bool):
     if st.session_state.analyzer is None:
         return None
 
+    # クエリ実行可否をチェック
+    auth_manager = st.session_state.auth_manager
+    can_execute, message = auth_manager.can_execute_query()
+    if not can_execute:
+        st.error(message)
+        return None
+
+    # チャート機能の制限チェック
+    if generate_chart and not auth_manager.can_use_charts():
+        st.warning("チャート機能は有料プランで利用できます")
+        generate_chart = False
+
     result = st.session_state.analyzer.ask(
         question,
         generate_chart=generate_chart,
         explain_result=explain_result,
     )
+
+    # クエリカウントを増加
+    auth_manager.usage_tracker.increment_query_count()
 
     # 履歴に追加
     st.session_state.history.append({
@@ -283,6 +319,9 @@ def main():
     st.title("📊 InsightAnalyzerAI")
     st.markdown("*自然言語でデータを分析するAIアシスタント*")
 
+    # 認証UI（サイドバー内）
+    render_auth_ui()
+
     # サイドバー
     with st.sidebar:
         st.header("⚙️ 設定")
@@ -351,7 +390,7 @@ def main():
     display_data_info()
 
     # タブで情報を整理
-    tab1, tab2, tab3 = st.tabs(["🔍 クエリ", "📊 データ情報", "📜 履歴"])
+    tab1, tab2, tab3, tab4 = st.tabs(["🔍 クエリ", "📊 データ情報", "📜 履歴", "💰 プラン"])
 
     with tab1:
         # クエリ入力
@@ -403,6 +442,10 @@ def main():
 
     with tab3:
         display_history()
+
+    with tab4:
+        render_pricing_ui()
+        render_billing_status()
 
 
 if __name__ == "__main__":

@@ -1,27 +1,38 @@
-﻿# InsightAnalyzerAI 萓晏ｭ倬未菫・# Python 3.11+ 謗ｨ螂ｨ
+# InsightAnalyzerAI 依存関係
+# Python 3.11+ 推奨
 
-# 繝・・繧ｿ蜃ｦ逅・pandas>=2.0.0,<3.0.0
+# データ処理
+pandas>=2.0.0,<3.0.0
 numpy>=1.24.0,<2.0.0
 
-# 蜿ｯ隕門喧
+# 可視化
 matplotlib>=3.7.0,<4.0.0
 plotly>=5.15.0,<6.0.0
 
-# LLM邨ｱ蜷茨ｼ・hase 2縺ｧ菴ｿ逕ｨ・・openai>=1.0.0,<2.0.0
+# LLM統合（Phase 2で使用）
+openai>=1.0.0,<2.0.0
 
-# Web UI・・hase 4縺ｧ菴ｿ逕ｨ・・streamlit>=1.28.0,<2.0.0
+# Web UI（Phase 4で使用）
+streamlit>=1.28.0,<2.0.0
 
-# Excel蟇ｾ蠢・openpyxl>=3.1.0,<4.0.0
+# 課金システム（Phase 5で使用）
+stripe>=7.0.0,<8.0.0
 
-# Parquet蟇ｾ蠢・pyarrow>=14.0.0,<15.0.0
+# Excel対応
+openpyxl>=3.1.0,<4.0.0
 
-# 繝・せ繝・pytest>=7.4.0,<8.0.0
+# Parquet対応
+pyarrow>=14.0.0,<15.0.0
+
+# テスト
+pytest>=7.4.0,<8.0.0
 pytest-cov>=4.1.0,<5.0.0
 
-# 繧ｳ繝ｼ繝牙刀雉ｪ
+# コード品質
 black>=23.9.0,<24.0.0
 isort>=5.12.0,<6.0.0
 mypy>=1.5.0,<2.0.0
 
-# 蝙九せ繧ｿ繝・pandas-stubs>=2.0.0
+# 型スタブ
+pandas-stubs>=2.0.0
 types-openpyxl>=3.1.0

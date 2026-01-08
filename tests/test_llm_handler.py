@@ -186,15 +186,14 @@ result = df['sales'].sum()
     def test_generate_code_with_mock(self, mock_openai_response):
         """モックを使用したコード生成テスト"""
         # 実際のAPI呼び出しをモック化
-        with patch('src.llm_handler.OpenAI') as MockOpenAI:
-            mock_client = Mock()
-            mock_client.chat.completions.create.return_value = mock_openai_response
-            MockOpenAI.return_value = mock_client
-
+        with patch.dict('sys.modules', {'openai': Mock()}):
+            # LLMHandlerを直接設定
             config = LLMConfig(api_key="test-key")
             handler = LLMHandler(config)
 
-            # is_availableをTrueに設定
+            # モッククライアントを設定
+            mock_client = Mock()
+            mock_client.chat.completions.create.return_value = mock_openai_response
             handler._available = True
             handler._client = mock_client
 

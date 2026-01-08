@@ -56,13 +56,22 @@ pip install -r requirements.txt
 # CLIモード
 python -m src.insight_analyzer data/sample_sales.csv
 
+# LLM統合モード（推奨）
+OPENAI_API_KEY=sk-... python -m src.insight_analyzer data/sample_sales.csv --explain
+
 # 対話モード
 > 総売上を計算して
-Total Sales: ¥45,800,000
+結果: ¥45,800,000
+[LLM使用 | クエリ: result = df['total_sales'].sum() | 実行時間: 150ms]
 
 > 月別のトレンドをグラフで見せて
 [チャートを生成しました: output/monthly_trend.png]
 ```
+
+### CLIオプション
+- `--chart`: チャートも生成する
+- `--no-llm`: LLM統合を無効化（フォールバックモード）
+- `--explain`: LLMで結果を日本語で説明
 
 ## 料金プラン（SaaS版）
 | プラン | 月額 | 機能 |
@@ -74,13 +83,28 @@ Total Sales: ¥45,800,000
 
 ## 現在のステータス
 
-**開発中 - Phase 1 (MVP)**
+**開発中 - Phase 2 (LLM統合)**
 
+### Phase 1 (MVP) ✅完了
 - [x] プロジェクト構造
-- [ ] CSV読み込み
-- [ ] 基本統計計算
-- [ ] LLM統合
-- [ ] Web UI
+- [x] CSV読み込み・基本統計（DataLoader）
+- [x] CLIインターフェース
+- [x] 単純なクエリ処理（QueryParser + QueryExecutor）
+- [x] モジュール分離
+- [x] 実行時間計測・信頼度スコア
+- [x] 基本チャート生成（matplotlib）
+
+### Phase 2 (LLM統合) 🚧進行中
+- [x] OpenAI API統合（LLMHandler）
+- [x] 自然言語→Pandasコード変換
+- [x] 結果の自然言語説明生成
+- [x] フォールバック機構（LLM失敗時）
+- [ ] プロンプト最適化
+
+### Phase 3以降
+- [ ] Web UI（Streamlit）
+- [ ] 自動インサイト
+- [ ] SaaS化
 
 ## ライセンス
 

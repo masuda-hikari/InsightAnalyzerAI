@@ -1,6 +1,7 @@
 """InsightAnalyzerのテスト"""
 
 from pathlib import Path
+from unittest.mock import Mock, patch
 
 import pandas as pd
 import pytest
@@ -9,6 +10,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.insight_analyzer import InsightAnalyzer, AnalysisResult
+from src.llm_handler import LLMConfig
 
 
 class TestInsightAnalyzer:
@@ -204,3 +206,191 @@ class TestNewArchitecture:
         metadata = analyzer.metadata
         assert "rows" in metadata
         assert metadata["rows"] == 3
+
+
+class TestLLMIntegration:
+    """LLM統合のテスト（Phase 2）"""
+
+    @pytest.fixture
+    def sample_df(self) -> pd.DataFrame:
+        """テスト用DataFrame"""
+        return pd.DataFrame({
+            "region": ["東京", "大阪", "名古屋", "福岡"],
+            "sales": [1000, 2000, 1500, 800],
+            "quantity": [10, 20, 15, 8],
+        })
+
+    def test_init_with_llm_disabled(self, sample_df: pd.DataFrame):
+        """LLM無効での初期化"""
+        analyzer = InsightAnalyzer(sample_df, use_llm=False)
+        assert analyzer.llm_available is False
+
+    def test_init_with_llm_enabled_no_key(self, sample_df: pd.DataFrame):
+        """LLM有効だがAPIキーなし"""
+        with patch.dict("os.environ", {}, clear=True):
+            analyzer = InsightAnalyzer(sample_df, use_llm=True)
+            # APIキーがないのでLLMは利用不可
+            assert analyzer.llm_available is False
+
+    def test_llm_available_property(self, sample_df: pd.DataFrame):
+        """llm_availableプロパティのテスト"""
+        analyzer = InsightAnalyzer(sample_df, use_llm=False)
+        assert analyzer.llm_available is False
+
+    def test_ask_without_llm_fallback(self, sample_df: pd.DataFrame):
+        """LLMなしでのフォールバック動作"""
+        analyzer = InsightAnalyzer(sample_df, use_llm=False)
+        result = analyzer.ask("salesの合計")
+
+        assert result.success is True
+        assert result.llm_used is False
+        assert "合計" in result.answer
+
+    def test_ask_with_use_llm_override(self, sample_df: pd.DataFrame):
+        """use_llmパラメータでのオーバーライド"""
+        analyzer = InsightAnalyzer(sample_df, use_llm=True)
+        # 明示的にLLM無効を指定
+        result = analyzer.ask("salesの合計", use_llm=False)
+
+        assert result.success is True
+        assert result.llm_used is False
+
+    def test_analysis_result_new_fields(self, sample_df: pd.DataFrame):
+        """AnalysisResultの新フィールド"""
+        analyzer = InsightAnalyzer(sample_df, use_llm=False)
+        result = analyzer.ask("合計")
+
+        # 新フィールドが存在するか確認
+        assert hasattr(result, "llm_explanation")
+        assert hasattr(result, "llm_used")
+        assert result.llm_used is False
+        assert result.llm_explanation is None
+
+    def test_llm_with_mock(self, sample_df: pd.DataFrame):
+        """モックを使用したLLMテスト"""
+        # モックレスポンス
+        mock_response = Mock()
+        mock_response.choices = [Mock()]
+        mock_response.choices[0].message.content = """```python
+result = df['sales'].sum()
+```"""
+        mock_response.usage = Mock()
+        mock_response.usage.total_tokens = 100
+
+        with patch.dict("sys.modules", {"openai": Mock()}):
+            analyzer = InsightAnalyzer(sample_df, use_llm=True)
+
+            # LLMハンドラをモック化
+            if analyzer._llm_handler:
+                mock_client = Mock()
+                mock_client.chat.completions.create.return_value = mock_response
+                analyzer._llm_handler._available = True
+                analyzer._llm_handler._client = mock_client
+
+                result = analyzer.ask("売上の合計")
+
+                assert result.success is True
+                assert result.llm_used is True
+                # 実際の値が計算される
+                assert "5,300" in result.answer or "5300" in result.answer
+
+    def test_llm_fallback_on_error(self, sample_df: pd.DataFrame):
+        """LLMエラー時のフォールバック"""
+        with patch.dict("sys.modules", {"openai": Mock()}):
+            analyzer = InsightAnalyzer(sample_df, use_llm=True)
+
+            if analyzer._llm_handler:
+                # エラーを発生させるモック
+                mock_client = Mock()
+                mock_client.chat.completions.create.side_effect = Exception("API Error")
+                analyzer._llm_handler._available = True
+                analyzer._llm_handler._client = mock_client
+
+                # エラー時はフォールバックする
+                result = analyzer.ask("salesの合計")
+
+                assert result.success is True
+                # フォールバックでキーワードベースの解析が動作
+                assert result.llm_used is False
+
+    def test_llm_unsafe_code_rejected(self, sample_df: pd.DataFrame):
+        """危険なコードの拒否"""
+        # 危険なコードを生成するモック
+        mock_response = Mock()
+        mock_response.choices = [Mock()]
+        mock_response.choices[0].message.content = """```python
+result = eval('df["sales"].sum()')
+```"""
+        mock_response.usage = Mock()
+        mock_response.usage.total_tokens = 100
+
+        with patch.dict("sys.modules", {"openai": Mock()}):
+            analyzer = InsightAnalyzer(sample_df, use_llm=True)
+
+            if analyzer._llm_handler:
+                mock_client = Mock()
+                mock_client.chat.completions.create.return_value = mock_response
+                analyzer._llm_handler._available = True
+                analyzer._llm_handler._client = mock_client
+
+                result = analyzer.ask("売上の合計")
+
+                # evalが含まれるコードは拒否され、フォールバック
+                assert result.success is True
+                assert result.llm_used is False
+
+
+class TestLLMExplainResult:
+    """LLMによる結果説明のテスト"""
+
+    @pytest.fixture
+    def sample_df(self) -> pd.DataFrame:
+        return pd.DataFrame({
+            "region": ["東京", "大阪"],
+            "sales": [1000, 2000],
+        })
+
+    def test_explain_result_disabled(self, sample_df: pd.DataFrame):
+        """説明機能が無効の場合"""
+        analyzer = InsightAnalyzer(sample_df, use_llm=False)
+        result = analyzer.ask("合計", explain_result=False)
+
+        assert result.llm_explanation is None
+
+    def test_explain_result_with_mock(self, sample_df: pd.DataFrame):
+        """モックを使用した説明機能テスト"""
+        # コード生成用モック
+        code_response = Mock()
+        code_response.choices = [Mock()]
+        code_response.choices[0].message.content = """```python
+result = df['sales'].sum()
+```"""
+        code_response.usage = Mock()
+        code_response.usage.total_tokens = 50
+
+        # 説明生成用モック
+        explain_response = Mock()
+        explain_response.choices = [Mock()]
+        explain_response.choices[0].message.content = "売上の合計は3,000円です。東京と大阪の売上を足し合わせた結果です。"
+        explain_response.usage = Mock()
+        explain_response.usage.total_tokens = 30
+
+        with patch.dict("sys.modules", {"openai": Mock()}):
+            analyzer = InsightAnalyzer(sample_df, use_llm=True)
+
+            if analyzer._llm_handler:
+                mock_client = Mock()
+                # 複数回の呼び出しに対応
+                mock_client.chat.completions.create.side_effect = [
+                    code_response,
+                    explain_response,
+                ]
+                analyzer._llm_handler._available = True
+                analyzer._llm_handler._client = mock_client
+
+                result = analyzer.ask("売上の合計", explain_result=True)
+
+                assert result.success is True
+                assert result.llm_used is True
+                assert result.llm_explanation is not None
+                assert "売上" in result.llm_explanation

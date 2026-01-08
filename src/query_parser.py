@@ -251,15 +251,31 @@ class QueryParser:
         question: str,
     ) -> float:
         """解析の確信度を計算"""
-        confidence = 0.5  # 基本値
+        confidence = 0.3  # 基本値
 
-        # クエリタイプが明確
-        if query_type != QueryType.UNKNOWN:
-            confidence += 0.2
+        # クエリにキーワードが含まれているかチェック
+        question_lower = question.lower()
+        keyword_matched = False
+        for qtype, keywords in self.QUERY_KEYWORDS.items():
+            if any(kw in question_lower or kw in question for kw in keywords):
+                keyword_matched = True
+                break
 
-        # 対象カラムが特定できた
-        if target_column:
+        # キーワードがマッチした場合
+        if keyword_matched:
+            confidence += 0.25
+
+        # クエリタイプが明確（DESCRIBEフォールバックでない場合）
+        if query_type != QueryType.UNKNOWN and keyword_matched:
             confidence += 0.15
+
+        # 対象カラムが質問に明示的に含まれている
+        if target_column:
+            # カラム名が質問に含まれているか確認
+            if target_column.lower() in question_lower or target_column in question:
+                confidence += 0.15
+            else:
+                confidence += 0.05  # デフォルト選択の場合
 
         # グループカラムが必要で特定できた
         if query_type == QueryType.GROUPBY and group_column:

@@ -6,6 +6,7 @@
 *.key
 credentials/
 secrets/
+.streamlit/secrets.toml
 
 # 言語別ビルド成果物
 # Node.js

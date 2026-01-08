@@ -1,0 +1,26 @@
+# Streamlit設定ファイル
+# InsightAnalyzerAI用
+
+[theme]
+# カラーテーマ設定
+primaryColor = "#FF6B6B"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F0F2F6"
+textColor = "#262730"
+font = "sans serif"
+
+[server]
+# サーバー設定
+headless = true
+enableCORS = false
+port = 8501
+maxUploadSize = 50
+
+[browser]
+# ブラウザ設定
+gatherUsageStats = false
+
+[client]
+# クライアント設定
+showErrorDetails = false
+toolbarMode = "auto"

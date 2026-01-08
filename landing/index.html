@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InsightAnalyzerAI - AIデータ分析アシスタント</title>
+    <meta name="description" content="自然言語でデータを分析できるAIアシスタント。CSVをアップロードして質問するだけで、プロ級の分析結果を取得。">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #FF6B6B;
+            --primary-dark: #E55555;
+            --secondary: #4ECDC4;
+            --dark: #2C3E50;
+            --light: #F8F9FA;
+            --gray: #6C757D;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            line-height: 1.7;
+            color: var(--dark);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* ヘッダー */
+        header {
+            background: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 1000;
+        }
+
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        .nav-links a {
+            margin-left: 30px;
+            text-decoration: none;
+            color: var(--dark);
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+
+        .nav-links a:hover {
+            color: var(--primary);
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 12px 30px;
+            border-radius: 30px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(255,107,107,0.3);
+        }
+
+        .btn-outline {
+            border: 2px solid var(--primary);
+            color: var(--primary);
+        }
+
+        .btn-outline:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        /* ヒーロー */
+        .hero {
+            padding: 150px 0 100px;
+            background: linear-gradient(135deg, #FFF5F5 0%, #F0FFFF 100%);
+            text-align: center;
+        }
+
+        .hero h1 {
+            font-size: 3rem;
+            margin-bottom: 20px;
+            color: var(--dark);
+        }
+
+        .hero h1 span {
+            color: var(--primary);
+        }
+
+        .hero p {
+            font-size: 1.2rem;
+            color: var(--gray);
+            margin-bottom: 40px;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .hero-buttons {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        /* 特徴 */
+        .features {
+            padding: 100px 0;
+        }
+
+        .features h2 {
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 60px;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 40px;
+        }
+
+        .feature-card {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            text-align: center;
+            transition: transform 0.3s;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-10px);
+        }
+
+        .feature-icon {
+            font-size: 3rem;
+            margin-bottom: 20px;
+        }
+
+        .feature-card h3 {
+            font-size: 1.3rem;
+            margin-bottom: 15px;
+        }
+
+        .feature-card p {
+            color: var(--gray);
+        }
+
+        /* デモ */
+        .demo {
+            padding: 100px 0;
+            background: var(--light);
+        }
+
+        .demo h2 {
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+        }
+
+        .demo > p {
+            text-align: center;
+            color: var(--gray);
+            margin-bottom: 60px;
+        }
+
+        .demo-box {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+
+        .demo-query {
+            background: var(--light);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-family: monospace;
+        }
+
+        .demo-result {
+            border-left: 4px solid var(--primary);
+            padding-left: 20px;
+        }
+
+        /* 料金 */
+        .pricing {
+            padding: 100px 0;
+        }
+
+        .pricing h2 {
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 60px;
+        }
+
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 30px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .pricing-card {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            text-align: center;
+            position: relative;
+        }
+
+        .pricing-card.popular {
+            border: 3px solid var(--primary);
+        }
+
+        .popular-badge {
+            position: absolute;
+            top: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--primary);
+            color: white;
+            padding: 5px 20px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .pricing-card h3 {
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+        }
+
+        .price {
+            font-size: 3rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 20px;
+        }
+
+        .price span {
+            font-size: 1rem;
+            color: var(--gray);
+        }
+
+        .pricing-features {
+            list-style: none;
+            margin-bottom: 30px;
+        }
+
+        .pricing-features li {
+            padding: 10px 0;
+            color: var(--gray);
+        }
+
+        .pricing-features li::before {
+            content: "✓ ";
+            color: var(--secondary);
+        }
+
+        /* CTA */
+        .cta {
+            padding: 100px 0;
+            background: linear-gradient(135deg, var(--primary) 0%, #FF8E8E 100%);
+            text-align: center;
+            color: white;
+        }
+
+        .cta h2 {
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+        }
+
+        .cta p {
+            font-size: 1.2rem;
+            margin-bottom: 40px;
+            opacity: 0.9;
+        }
+
+        .cta .btn {
+            background: white;
+            color: var(--primary);
+        }
+
+        .cta .btn:hover {
+            background: var(--light);
+            transform: translateY(-2px);
+        }
+
+        /* フッター */
+        footer {
+            background: var(--dark);
+            color: white;
+            padding: 60px 0 30px;
+        }
+
+        .footer-content {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 40px;
+            margin-bottom: 40px;
+        }
+
+        .footer-section h4 {
+            margin-bottom: 20px;
+            font-size: 1.1rem;
+        }
+
+        .footer-section a {
+            display: block;
+            color: rgba(255,255,255,0.7);
+            text-decoration: none;
+            margin-bottom: 10px;
+            transition: color 0.3s;
+        }
+
+        .footer-section a:hover {
+            color: white;
+        }
+
+        .footer-bottom {
+            text-align: center;
+            padding-top: 30px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            color: rgba(255,255,255,0.5);
+        }
+
+        /* レスポンシブ */
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 2rem;
+            }
+
+            .nav-links {
+                display: none;
+            }
+
+            .features h2,
+            .demo h2,
+            .pricing h2,
+            .cta h2 {
+                font-size: 1.8rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- ヘッダー -->
+    <header>
+        <div class="container">
+            <nav>
+                <a href="#" class="logo">InsightAnalyzerAI</a>
+                <div class="nav-links">
+                    <a href="#features">機能</a>
+                    <a href="#demo">デモ</a>
+                    <a href="#pricing">料金</a>
+                    <a href="#" class="btn btn-primary">無料で始める</a>
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <!-- ヒーロー -->
+    <section class="hero">
+        <div class="container">
+            <h1>自然言語で<span>データ分析</span></h1>
+            <p>CSVをアップロードして質問するだけ。AIがプロ級の分析を実行し、わかりやすい回答を生成します。</p>
+            <div class="hero-buttons">
+                <a href="#" class="btn btn-primary">無料で試す</a>
+                <a href="#demo" class="btn btn-outline">デモを見る</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- 特徴 -->
+    <section class="features" id="features">
+        <div class="container">
+            <h2>なぜInsightAnalyzerAIなのか</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">💬</div>
+                    <h3>自然言語で質問</h3>
+                    <p>SQLやPythonの知識は不要。日本語で「売上の合計は？」と聞くだけで分析が実行されます。</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">⚡</div>
+                    <h3>即座に分析</h3>
+                    <p>AIが質問を理解し、適切な分析コードを自動生成。数秒で結果が返ってきます。</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📊</div>
+                    <h3>可視化も自動</h3>
+                    <p>分析結果に最適なグラフを自動で選択・生成。インタラクティブなチャートで直感的に理解できます。</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔒</div>
+                    <h3>セキュア</h3>
+                    <p>データは分析後すぐに削除。生成されたコードはサンドボックスで実行され、安全性を確保しています。</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🎯</div>
+                    <h3>高精度なAI</h3>
+                    <p>GPT-4を活用した高精度な自然言語処理で、複雑な質問も正確に解釈します。</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📁</div>
+                    <h3>複数形式対応</h3>
+                    <p>CSV、Excel、Parquetなど様々なファイル形式に対応。最大50MBまでのデータを処理できます。</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- デモ -->
+    <section class="demo" id="demo">
+        <div class="container">
+            <h2>使い方はシンプル</h2>
+            <p>CSVをアップロードして、聞きたいことを入力するだけ</p>
+            <div class="demo-box">
+                <div class="demo-query">
+                    <strong>質問:</strong> 「カテゴリ別の売上合計を教えて」
+                </div>
+                <div class="demo-result">
+                    <p><strong>回答:</strong></p>
+                    <p>カテゴリ別の売上合計は以下の通りです：</p>
+                    <ul>
+                        <li>Electronics: ¥4,500,000</li>
+                        <li>Clothing: ¥2,800,000</li>
+                        <li>Food: ¥1,200,000</li>
+                    </ul>
+                    <p style="margin-top: 15px; color: var(--gray); font-size: 0.9rem;">
+                        <strong>AIによる解説:</strong> Electronicsカテゴリが全体売上の53%を占めており、主力カテゴリとなっています。
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 料金 -->
+    <section class="pricing" id="pricing">
+        <div class="container">
+            <h2>シンプルな料金プラン</h2>
+            <div class="pricing-grid">
+                <div class="pricing-card">
+                    <h3>Free</h3>
+                    <div class="price">¥0<span>/月</span></div>
+                    <ul class="pricing-features">
+                        <li>1MB/ファイルまで</li>
+                        <li>10クエリ/日</li>
+                        <li>基本チャート</li>
+                        <li>コミュニティサポート</li>
+                    </ul>
+                    <a href="#" class="btn btn-outline">無料で始める</a>
+                </div>
+                <div class="pricing-card popular">
+                    <div class="popular-badge">人気</div>
+                    <h3>Basic</h3>
+                    <div class="price">¥2,980<span>/月</span></div>
+                    <ul class="pricing-features">
+                        <li>50MB/ファイルまで</li>
+                        <li>100クエリ/日</li>
+                        <li>全チャートタイプ</li>
+                        <li>AI解説機能</li>
+                        <li>メールサポート</li>
+                    </ul>
+                    <a href="#" class="btn btn-primary">今すぐ申し込む</a>
+                </div>
+                <div class="pricing-card">
+                    <h3>Pro</h3>
+                    <div class="price">¥9,800<span>/月</span></div>
+                    <ul class="pricing-features">
+                        <li>500MB/ファイルまで</li>
+                        <li>無制限クエリ</li>
+                        <li>API連携</li>
+                        <li>チーム共有機能</li>
+                        <li>優先サポート</li>
+                    </ul>
+                    <a href="#" class="btn btn-outline">お問い合わせ</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="cta">
+        <div class="container">
+            <h2>今すぐデータ分析を始めましょう</h2>
+            <p>登録不要・無料でお試しいただけます</p>
+            <a href="#" class="btn">無料で始める →</a>
+        </div>
+    </section>
+
+    <!-- フッター -->
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>InsightAnalyzerAI</h4>
+                    <p style="color: rgba(255,255,255,0.7);">AIでデータ分析を民主化する</p>
+                </div>
+                <div class="footer-section">
+                    <h4>製品</h4>
+                    <a href="#features">機能</a>
+                    <a href="#pricing">料金</a>
+                    <a href="#">ドキュメント</a>
+                </div>
+                <div class="footer-section">
+                    <h4>サポート</h4>
+                    <a href="#">ヘルプセンター</a>
+                    <a href="#">お問い合わせ</a>
+                    <a href="#">FAQ</a>
+                </div>
+                <div class="footer-section">
+                    <h4>法的情報</h4>
+                    <a href="#">利用規約</a>
+                    <a href="#">プライバシーポリシー</a>
+                    <a href="#">特定商取引法に基づく表記</a>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 InsightAnalyzerAI. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>

@@ -231,6 +231,68 @@ class TestAuthManager:
         assert success is True
         assert manager.get_current_user().plan == PlanType.PRO
 
+    def test_can_use_insights_free_plan(self, mock_session_state):
+        """Freeプランでは自動インサイト使用不可"""
+        manager = AuthManager()
+        manager.register("free@example.com", "password123")
+        manager.login("free@example.com", "password123")
+
+        assert manager.can_use_insights() is False
+
+    def test_can_use_insights_basic_plan(self, mock_session_state):
+        """Basicプランでは自動インサイト使用可能"""
+        manager = AuthManager()
+        manager.register("basic@example.com", "password123")
+        manager.login("basic@example.com", "password123")
+        manager.update_plan("basic@example.com", PlanType.BASIC)
+
+        assert manager.can_use_insights() is True
+
+    def test_can_use_insights_pro_plan(self, mock_session_state):
+        """Proプランでは自動インサイト使用可能"""
+        manager = AuthManager()
+        manager.register("pro@example.com", "password123")
+        manager.login("pro@example.com", "password123")
+        manager.update_plan("pro@example.com", PlanType.PRO)
+
+        assert manager.can_use_insights() is True
+
+    def test_can_use_insights_unauthenticated(self, mock_session_state):
+        """未認証では自動インサイト使用不可"""
+        manager = AuthManager()
+
+        assert manager.can_use_insights() is False
+
+    def test_can_use_charts_free(self, mock_session_state):
+        """Freeプランではチャート使用不可"""
+        manager = AuthManager()
+
+        assert manager.can_use_charts() is False
+
+    def test_can_use_charts_basic(self, mock_session_state):
+        """Basicプランではチャート使用可能"""
+        manager = AuthManager()
+        manager.register("charts@example.com", "password123")
+        manager.login("charts@example.com", "password123")
+        manager.update_plan("charts@example.com", PlanType.BASIC)
+
+        assert manager.can_use_charts() is True
+
+    def test_can_use_llm_free(self, mock_session_state):
+        """FreeプランではLLM使用不可"""
+        manager = AuthManager()
+
+        assert manager.can_use_llm() is False
+
+    def test_can_use_llm_basic(self, mock_session_state):
+        """BasicプランではLLM使用可能"""
+        manager = AuthManager()
+        manager.register("llm@example.com", "password123")
+        manager.login("llm@example.com", "password123")
+        manager.update_plan("llm@example.com", PlanType.BASIC)
+
+        assert manager.can_use_llm() is True
+
 
 class TestUsageTracker:
     """UsageTrackerのテスト"""

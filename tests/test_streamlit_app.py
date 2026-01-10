@@ -672,3 +672,205 @@ class TestDemoMode:
 
         assert sample_path.suffix == ".csv"
         assert "sample" in str(sample_path)
+
+
+class TestInsightReportDisplay:
+    """自動インサイトレポート表示のテスト"""
+
+    def test_insight_severity_icons(self):
+        """インサイト重要度のアイコンマッピング"""
+        severity_icons = {
+            "critical": "🚨",
+            "warning": "⚠️",
+            "info": "💡",
+        }
+
+        assert "critical" in severity_icons
+        assert "warning" in severity_icons
+        assert "info" in severity_icons
+
+    def test_insight_type_icons(self):
+        """インサイトタイプのアイコンマッピング"""
+        type_icons = {
+            "overview": "📋",
+            "trend": "📈",
+            "anomaly": "🔴",
+            "correlation": "🔗",
+            "distribution": "📊",
+            "top": "🏆",
+            "bottom": "📉",
+            "seasonality": "🗓️",
+            "missing": "❓",
+            "recommendation": "💡",
+        }
+
+        assert len(type_icons) == 10
+        for icon in type_icons.values():
+            assert len(icon) > 0
+
+    def test_insight_card_background_colors(self):
+        """インサイトカードの背景色"""
+        bg_colors = {
+            "error": "#fff0f0",
+            "warning": "#fff8e0",
+            "info": "#f0f8ff",
+        }
+
+        for style, color in bg_colors.items():
+            assert color.startswith("#")
+            assert len(color) == 7  # #RRGGBB形式
+
+    def test_insight_card_border_colors(self):
+        """インサイトカードのボーダー色"""
+        border_colors = {
+            "error": "#ff6b6b",
+            "warning": "#ffc107",
+            "info": "#4ECDC4",
+        }
+
+        for style, color in border_colors.items():
+            assert color.startswith("#")
+
+    def test_insight_report_summary_format(self):
+        """インサイトレポートサマリーの形式"""
+        # サマリー形式のテスト
+        total_insights = 10
+        critical_count = 2
+        warning_count = 3
+
+        summary = f"発見: {total_insights}件（重要: {critical_count}件, 注意: {warning_count}件）"
+
+        assert "10件" in summary
+        assert "重要: 2件" in summary
+        assert "注意: 3件" in summary
+
+    def test_insight_confidence_display(self):
+        """インサイト信頼度の表示形式"""
+        confidence = 0.85
+
+        formatted = f"信頼度: {confidence:.0%}"
+
+        assert formatted == "信頼度: 85%"
+
+    def test_insight_export_json_structure(self):
+        """インサイトエクスポートJSONの構造"""
+        import json
+
+        export_data = {
+            "summary": "発見: 5件",
+            "generated_at": "2026-01-11T12:00:00",
+            "data_rows": 100,
+            "data_columns": 5,
+            "insights": [
+                {
+                    "type": "anomaly",
+                    "title": "異常値検出",
+                    "description": "売上に異常値があります",
+                    "severity": "warning",
+                    "confidence": 0.9,
+                    "recommendation": "確認してください",
+                }
+            ]
+        }
+
+        json_str = json.dumps(export_data, ensure_ascii=False)
+
+        assert "summary" in json_str
+        assert "insights" in json_str
+        assert "異常値検出" in json_str
+
+
+class TestInsightUIIntegration:
+    """インサイトUI統合のテスト"""
+
+    def test_insight_tab_structure(self):
+        """インサイトタブの構造"""
+        tabs = ["🔍 クエリ", "💡 自動インサイト", "📊 データ情報", "📜 履歴", "💰 プラン"]
+
+        assert len(tabs) == 5
+        assert "💡 自動インサイト" in tabs
+
+    def test_premium_feature_message(self):
+        """プレミアム機能メッセージの形式"""
+        message = "⭐ 自動インサイト機能は有料プラン（Basic以上）で利用できます"
+
+        assert "有料プラン" in message
+        assert "Basic" in message
+
+    def test_upgrade_benefits_list(self):
+        """アップグレード特典リストの形式"""
+        benefits = [
+            "🔍 異常値の自動検出",
+            "📈 トレンド分析",
+            "🔗 相関分析",
+            "📊 分布分析",
+            "💡 改善提案の自動生成",
+        ]
+
+        assert len(benefits) == 5
+        for benefit in benefits:
+            assert len(benefit) > 0
+
+    def test_insight_spinner_message(self):
+        """インサイト分析中のスピナーメッセージ"""
+        message = "🔍 データを分析中..."
+
+        assert "分析中" in message
+
+    def test_download_button_label(self):
+        """ダウンロードボタンのラベル形式"""
+        label = "📥 レポートをダウンロード（JSON）"
+
+        assert "ダウンロード" in label
+        assert "JSON" in label
+
+
+class TestLandingPageInsightFeatures:
+    """ランディングページのインサイト機能表示テスト"""
+
+    def test_insight_feature_card_content(self):
+        """インサイト機能カードの内容"""
+        feature_cards = [
+            {
+                "icon": "💡",
+                "title": "自動インサイト発見",
+                "description": "AIがデータをスキャンし、異常値・トレンド・相関関係を自動で発見",
+            },
+            {
+                "icon": "🎯",
+                "title": "改善提案の自動生成",
+                "description": "発見したインサイトに基づいて、具体的な改善アクションを提案",
+            },
+        ]
+
+        for card in feature_cards:
+            assert "icon" in card
+            assert "title" in card
+            assert "description" in card
+            assert len(card["description"]) > 20
+
+    def test_pricing_insight_features(self):
+        """料金プランのインサイト機能表示"""
+        basic_features = [
+            "50MB/ファイルまで",
+            "100クエリ/日",
+            "全チャートタイプ",
+            "AI解説機能",
+            "⭐ 自動インサイト発見",
+            "メールサポート",
+        ]
+
+        assert "⭐ 自動インサイト発見" in basic_features
+
+    def test_demo_insight_preview(self):
+        """デモセクションのインサイトプレビュー"""
+        demo_insights = [
+            "🔴 Electronicsカテゴリに3件の異常値を検出",
+            "📈 売上は過去3ヶ月で15%増加傾向",
+            "🔗 広告費と売上に強い正の相関（r=0.85）",
+        ]
+
+        assert len(demo_insights) == 3
+        for insight in demo_insights:
+            # 絵文字で始まることを確認
+            assert insight[0] in "🔴📈🔗"

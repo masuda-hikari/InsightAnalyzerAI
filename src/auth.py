@@ -289,6 +289,13 @@ class AuthManager:
         """LLM機能が使えるか"""
         return self.get_plan_limits().llm_enabled
 
+    def can_use_insights(self) -> bool:
+        """自動インサイト機能が使えるか（Basic以上）"""
+        user = self.get_current_user()
+        if user is None:
+            return False
+        return user.plan in [PlanType.BASIC, PlanType.PRO, PlanType.ENTERPRISE]
+
     def update_plan(self, user_email: str, new_plan: PlanType,
                     stripe_customer_id: Optional[str] = None,
                     stripe_subscription_id: Optional[str] = None) -> bool:

@@ -21,6 +21,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from src.insight_analyzer import InsightAnalyzer, AnalysisResult
 from src.auth import AuthManager, PlanType, render_auth_ui
 from src.billing import render_pricing_ui, render_billing_status
+from src.insight_engine import InsightEngine, InsightReport, InsightType, InsightSeverity
 
 
 # ページ設定
@@ -338,7 +339,7 @@ def display_schema():
 
 
 def display_insights():
-    """自動インサイトを表示"""
+    """自動インサイトを表示（簡易版）"""
     if st.session_state.analyzer is None:
         return
 
@@ -346,6 +347,148 @@ def display_insights():
         insights = st.session_state.analyzer.get_insights()
         for insight in insights:
             st.write(f"• {insight}")
+
+
+def render_insight_report():
+    """自動インサイトレポートの詳細表示（プレミアム機能）"""
+    if st.session_state.analyzer is None:
+        st.info("データを読み込んでください")
+        return
+
+    # プラン制限チェック
+    auth_manager = st.session_state.auth_manager
+    if not auth_manager.can_use_insights():
+        st.warning("⭐ 自動インサイト機能は有料プラン（Basic以上）で利用できます")
+        st.markdown("### 🔓 アップグレードして利用する")
+        st.markdown("""
+        **自動インサイト機能で得られるメリット:**
+        - 🔍 異常値の自動検出
+        - 📈 トレンド分析
+        - 🔗 相関分析
+        - 📊 分布分析
+        - 💡 改善提案の自動生成
+        """)
+        if st.button("💰 有料プランを見る", key="upgrade_insights"):
+            st.session_state.show_pricing = True
+        return
+
+    # インサイトエンジンを実行
+    df = st.session_state.analyzer.dataframe
+
+    with st.spinner("🔍 データを分析中..."):
+        try:
+            engine = InsightEngine(df)
+            report = engine.generate_report(max_insights=15)
+        except Exception as e:
+            st.error(f"分析エラー: {str(e)}")
+            return
+
+    # レポートヘッダー
+    st.markdown(f"""
+    <div class="info-card">
+        <h3>📊 自動インサイトレポート</h3>
+        <p><strong>{report.summary}</strong></p>
+        <p style="color: #6c757d; font-size: 0.9rem;">
+            分析時間: {report.analysis_time_ms:.1f}ms |
+            データ: {report.data_rows:,}行 × {report.data_columns}列
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # インサイトを重要度別にグループ化
+    critical_insights = [i for i in report.insights if i.severity == InsightSeverity.CRITICAL]
+    warning_insights = [i for i in report.insights if i.severity == InsightSeverity.WARNING]
+    info_insights = [i for i in report.insights if i.severity == InsightSeverity.INFO]
+
+    # 重要インサイト（CRITICAL）
+    if critical_insights:
+        st.markdown("### 🚨 重要な発見")
+        for insight in critical_insights:
+            render_single_insight(insight, "error")
+
+    # 注意インサイト（WARNING）
+    if warning_insights:
+        st.markdown("### ⚠️ 注意が必要")
+        for insight in warning_insights:
+            render_single_insight(insight, "warning")
+
+    # 情報インサイト（INFO）
+    if info_insights:
+        st.markdown("### 💡 その他の発見")
+        for insight in info_insights:
+            render_single_insight(insight, "info")
+
+    # エクスポートオプション
+    st.divider()
+    col1, col2 = st.columns(2)
+    with col1:
+        # JSONエクスポート
+        import json
+        report_json = json.dumps({
+            "summary": report.summary,
+            "generated_at": report.generated_at,
+            "data_rows": report.data_rows,
+            "data_columns": report.data_columns,
+            "insights": [
+                {
+                    "type": i.insight_type.value,
+                    "title": i.title,
+                    "description": i.description,
+                    "severity": i.severity.value,
+                    "confidence": i.confidence,
+                    "recommendation": i.recommendation,
+                }
+                for i in report.insights
+            ]
+        }, ensure_ascii=False, indent=2)
+
+        st.download_button(
+            label="📥 レポートをダウンロード（JSON）",
+            data=report_json,
+            file_name="insight_report.json",
+            mime="application/json",
+            use_container_width=True,
+        )
+
+
+def render_single_insight(insight, style: str = "info"):
+    """個別のインサイトを表示"""
+    # アイコンを決定
+    icon_map = {
+        InsightType.OVERVIEW: "📋",
+        InsightType.TREND: "📈",
+        InsightType.ANOMALY: "🔴",
+        InsightType.CORRELATION: "🔗",
+        InsightType.DISTRIBUTION: "📊",
+        InsightType.TOP_PERFORMERS: "🏆",
+        InsightType.BOTTOM_PERFORMERS: "📉",
+        InsightType.SEASONALITY: "🗓️",
+        InsightType.MISSING_DATA: "❓",
+        InsightType.RECOMMENDATION: "💡",
+    }
+    icon = icon_map.get(insight.insight_type, "💡")
+
+    # 背景色を決定
+    bg_color = {
+        "error": "#fff0f0",
+        "warning": "#fff8e0",
+        "info": "#f0f8ff",
+    }.get(style, "#f8f9fa")
+
+    border_color = {
+        "error": "#ff6b6b",
+        "warning": "#ffc107",
+        "info": "#4ECDC4",
+    }.get(style, "#dee2e6")
+
+    st.markdown(f"""
+    <div style="background: {bg_color}; border-left: 4px solid {border_color}; padding: 1rem 1.5rem; margin: 0.5rem 0; border-radius: 8px;">
+        <p style="margin: 0; font-weight: 600;">{icon} {insight.title}</p>
+        <p style="margin: 0.5rem 0 0 0; color: #333;">{insight.description}</p>
+        {"<p style='margin: 0.5rem 0 0 0; color: #666; font-size: 0.9rem;'>💡 <em>" + insight.recommendation + "</em></p>" if insight.recommendation else ""}
+        <p style="margin: 0.5rem 0 0 0; color: #999; font-size: 0.8rem;">信頼度: {insight.confidence:.0%}</p>
+    </div>
+    """, unsafe_allow_html=True)
 
 
 def display_data_preview():
@@ -787,7 +930,7 @@ def main():
     display_data_info()
 
     # タブで情報を整理
-    tab1, tab2, tab3, tab4 = st.tabs(["🔍 クエリ", "📊 データ情報", "📜 履歴", "💰 プラン"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["🔍 クエリ", "💡 自動インサイト", "📊 データ情報", "📜 履歴", "💰 プラン"])
 
     with tab1:
         # デモモードならワンクリック分析を表示
@@ -857,17 +1000,21 @@ def main():
             display_result(st.session_state.history[-1]["result"], show_chart=generate_chart)
 
     with tab2:
+        # 自動インサイトレポート（プレミアム機能）
+        render_insight_report()
+
+    with tab3:
         display_schema()
         display_insights()
         display_data_preview()
 
-    with tab3:
+    with tab4:
         if st.session_state.history:
             display_history()
         else:
             st.info("まだクエリ履歴がありません。質問を入力して分析を実行してください。")
 
-    with tab4:
+    with tab5:
         render_pricing_ui()
         render_billing_status()
 

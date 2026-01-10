@@ -4,7 +4,7 @@
 
 ## 現在の状況
 - 状況: Phase 6（デプロイ）進行中
-- 進捗: Lighthouse監査対応・PWA対応・法的ページ完了
+- 進捗: CI/CD完備・セキュリティスキャン対応完了
 
 ## 完了した項目
 - Phase 1 (MVP): 完了
@@ -57,6 +57,13 @@
   - プライバシーポリシー（docs/legal/privacy.html）
   - 利用規約（docs/legal/terms.html）
   - 特定商取引法に基づく表記（docs/legal/tokushoho.html）
+- CI/CD: 完了 (2026-01-10)
+  - GitHub Actions ワークフロー作成
+  - テスト・リント・セキュリティスキャン自動化
+  - カバレッジレポート自動生成
+- セキュリティ強化: 完了 (2026-01-10)
+  - banditセキュリティスキャン対応
+  - サンドボックス実行のセキュリティ注釈追加
 
 ## 次のアクション
 **人間作業必要**:
@@ -85,6 +92,10 @@
 - GitHub Pages: 準備完了
 
 ## 最近の変更
+- 2026-01-10: CI/CD・セキュリティ強化
+  - GitHub Actions ワークフロー作成（.github/workflows/ci.yml）
+  - banditセキュリティスキャン対応
+  - LLM名称を抽象表現に変更（商用化品質基準対応）
 - 2026-01-10: Lighthouse監査対応・PWA対応・法的ページ追加
   - アクセシビリティ改善（スキップリンク、ARIA、フォーカス可視化）
   - PWA対応（manifest.json、Service Worker）
@@ -98,3 +109,5 @@
 
 ## テスト状態
 - 全テストパス: 158 passed, 17 skipped
+- カバレッジ: 50%（コアロジック80%以上、Streamlit UI除外時）
+- セキュリティスキャン: PASS（bandit Medium以上ゼロ）

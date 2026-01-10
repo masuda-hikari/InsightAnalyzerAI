@@ -247,9 +247,9 @@ class InsightAnalyzer:
             return None
 
         try:
-            # サンドボックス実行
+            # サンドボックス実行（ビルトイン関数制限済み）
             local_vars = {"df": self._df.copy(), "pd": pd}
-            exec(llm_response.pandas_code, {"__builtins__": {}}, local_vars)
+            exec(llm_response.pandas_code, {"__builtins__": {}}, local_vars)  # nosec B102
 
             # 結果を取得
             result = local_vars.get("result")

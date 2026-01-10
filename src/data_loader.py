@@ -84,20 +84,78 @@ class DataLoader:
         return df
 
     def _load_csv(self, path: Path) -> pd.DataFrame:
-        """CSV読み込み"""
-        return pd.read_csv(path, encoding='utf-8')
+        """CSV読み込み
+
+        複数のエンコーディングを試行し、データの整合性を検証する
+        """
+        encodings = ['utf-8', 'utf-8-sig', 'shift_jis', 'cp932', 'euc-jp', 'latin-1']
+
+        last_error = None
+        for encoding in encodings:
+            try:
+                df = pd.read_csv(path, encoding=encoding)
+                # 空のDataFrameチェック
+                if df.empty:
+                    raise ValueError("CSVファイルが空です")
+                return df
+            except UnicodeDecodeError as e:
+                last_error = e
+                continue
+            except pd.errors.EmptyDataError:
+                raise ValueError("CSVファイルにデータがありません")
+            except pd.errors.ParserError as e:
+                raise ValueError(f"CSVパースエラー: {str(e)}")
+
+        raise ValueError(f"CSVファイルのエンコーディングを判定できません: {last_error}")
 
     def _load_excel(self, path: Path) -> pd.DataFrame:
-        """Excel読み込み"""
-        return pd.read_excel(path)
+        """Excel読み込み
+
+        Excelファイルの読み込みエラーをハンドリング
+        """
+        try:
+            df = pd.read_excel(path)
+            if df.empty:
+                raise ValueError("Excelファイルが空です")
+            return df
+        except Exception as e:
+            if "xlrd" in str(e) or "openpyxl" in str(e):
+                raise ValueError(
+                    f"Excelファイル読み込みに必要なライブラリがありません: {str(e)}"
+                )
+            raise ValueError(f"Excel読み込みエラー: {str(e)}")
 
     def _load_json(self, path: Path) -> pd.DataFrame:
-        """JSON読み込み"""
-        return pd.read_json(path)
+        """JSON読み込み
+
+        JSON形式のバリデーションを含む
+        """
+        try:
+            df = pd.read_json(path)
+            if df.empty:
+                raise ValueError("JSONファイルが空です")
+            return df
+        except ValueError as e:
+            if "Trailing data" in str(e) or "Expected object or value" in str(e):
+                raise ValueError(f"JSONフォーマットが不正です: {str(e)}")
+            raise
 
     def _load_parquet(self, path: Path) -> pd.DataFrame:
-        """Parquet読み込み"""
-        return pd.read_parquet(path)
+        """Parquet読み込み
+
+        Parquetファイルの読み込みエラーをハンドリング
+        """
+        try:
+            df = pd.read_parquet(path)
+            if df.empty:
+                raise ValueError("Parquetファイルが空です")
+            return df
+        except Exception as e:
+            if "pyarrow" in str(e) or "fastparquet" in str(e):
+                raise ValueError(
+                    f"Parquetファイル読み込みに必要なライブラリがありません: {str(e)}"
+                )
+            raise ValueError(f"Parquet読み込みエラー: {str(e)}")
 
     def _update_metadata(self) -> None:
         """メタデータを更新"""

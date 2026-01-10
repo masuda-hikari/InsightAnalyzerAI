@@ -278,6 +278,7 @@ class SafeExecutor:
     - 危険な操作のブロック
     - リソース制限
     - 監査ログ
+    - 詳細なエラーハンドリング
     """
 
     # 禁止するDataFrame操作（将来のLLM生成コード用）
@@ -287,35 +288,160 @@ class SafeExecutor:
         "to_sql",
         "to_pickle",
         "__",
+        "import",
+        "open(",
+        "os.",
+        "sys.",
+        "subprocess",
+        "shell",
+        "rm ",
+        "del ",
     ]
 
+    # 最大実行時間（ミリ秒）
+    MAX_EXECUTION_TIME_MS = 30000
+
+    # 最大結果行数
+    MAX_RESULT_ROWS = 10000
+
     def __init__(self, df: pd.DataFrame):
+        if df is None:
+            raise ValueError("DataFrameがNoneです")
+        if len(df) == 0:
+            raise ValueError("DataFrameが空です")
+
         self._df = df
         self._execution_log: list = []
 
     def validate_code(self, code: str) -> bool:
-        """コードの安全性を検証"""
+        """コードの安全性を検証
+
+        Args:
+            code: 検証するコード文字列
+
+        Returns:
+            安全な場合True、危険な操作が含まれる場合False
+        """
+        if not code or not isinstance(code, str):
+            return False
+
+        code_lower = code.lower()
         for blocked in self.BLOCKED_OPERATIONS:
-            if blocked in code:
+            if blocked.lower() in code_lower:
                 return False
         return True
 
     def execute_safe(self, query: ParsedQuery) -> ExecutionResult:
-        """安全にクエリを実行"""
-        executor = QueryExecutor(self._df)
-        result = executor.execute(query)
+        """安全にクエリを実行
 
-        # 実行ログを記録
-        self._execution_log.append({
-            "query": query.original_question,
-            "query_code": result.query_code,
-            "success": result.success,
-            "execution_time_ms": result.execution_time_ms,
-        })
+        Args:
+            query: 解析済みクエリ
 
-        return result
+        Returns:
+            実行結果（エラー時も含む）
+        """
+        start_time = time.perf_counter()
+
+        try:
+            # クエリのバリデーション
+            if query is None:
+                return ExecutionResult(
+                    success=False,
+                    error="クエリがNullです",
+                    execution_time_ms=0,
+                )
+
+            # 実行
+            executor = QueryExecutor(self._df)
+            result = executor.execute(query)
+
+            # 結果のバリデーション
+            if result.data is not None:
+                # 結果行数の制限
+                if len(result.data) > self.MAX_RESULT_ROWS:
+                    result.data = result.data.head(self.MAX_RESULT_ROWS)
+
+                # メモリ使用量チェック（100MB制限）
+                memory_mb = result.data.memory_usage(deep=True).sum() / (1024 * 1024)
+                if memory_mb > 100:
+                    result.data = result.data.head(1000)
+
+            # 実行ログを記録
+            self._execution_log.append({
+                "query": query.original_question,
+                "query_code": result.query_code,
+                "success": result.success,
+                "execution_time_ms": result.execution_time_ms,
+            })
+
+            return result
+
+        except MemoryError:
+            execution_time = (time.perf_counter() - start_time) * 1000
+            return ExecutionResult(
+                success=False,
+                error="メモリ不足: データが大きすぎます。サンプリングを試してください。",
+                execution_time_ms=execution_time,
+            )
+        except pd.errors.OutOfBoundsDatetime:
+            execution_time = (time.perf_counter() - start_time) * 1000
+            return ExecutionResult(
+                success=False,
+                error="日付データが範囲外です",
+                execution_time_ms=execution_time,
+            )
+        except KeyError as e:
+            execution_time = (time.perf_counter() - start_time) * 1000
+            return ExecutionResult(
+                success=False,
+                error=f"カラムが見つかりません: {str(e)}",
+                execution_time_ms=execution_time,
+            )
+        except TypeError as e:
+            execution_time = (time.perf_counter() - start_time) * 1000
+            return ExecutionResult(
+                success=False,
+                error=f"データ型エラー: {str(e)}",
+                execution_time_ms=execution_time,
+            )
+        except Exception as e:
+            execution_time = (time.perf_counter() - start_time) * 1000
+            # 詳細なエラーメッセージを生成
+            error_type = type(e).__name__
+            return ExecutionResult(
+                success=False,
+                error=f"実行エラー ({error_type}): {str(e)}",
+                execution_time_ms=execution_time,
+            )
+
+    def get_error_suggestion(self, error: str) -> str:
+        """エラーに対する改善提案を取得
+
+        Args:
+            error: エラーメッセージ
+
+        Returns:
+            改善提案
+        """
+        suggestions = {
+            "カラムが見つかりません": "利用可能なカラム名を確認してください。",
+            "数値カラムが見つかりません": "数値データを含むカラムを指定してください。",
+            "グループ化カラムが見つかりません": "カテゴリ型のカラムを指定してください。",
+            "メモリ不足": "データをサンプリングするか、フィルタを適用してください。",
+            "日付データが範囲外": "日付形式を確認してください。",
+        }
+
+        for key, suggestion in suggestions.items():
+            if key in error:
+                return suggestion
+
+        return "質問を別の表現で試してください。"
 
     @property
     def execution_log(self) -> list:
         """実行ログを取得"""
         return self._execution_log
+
+    def clear_log(self) -> None:
+        """実行ログをクリア"""
+        self._execution_log = []

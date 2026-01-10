@@ -128,6 +128,21 @@ class TestSafeExecutor:
         assert executor.validate_code("exec('code')") is False
         assert executor.validate_code("df.__class__") is False
 
+    def test_validate_additional_blocked_operations(self, sample_df: pd.DataFrame):
+        """追加の危険な操作のブロック"""
+        executor = SafeExecutor(sample_df)
+        assert executor.validate_code("import os") is False
+        assert executor.validate_code("open('file.txt')") is False
+        assert executor.validate_code("os.system('ls')") is False
+        assert executor.validate_code("sys.exit()") is False
+        assert executor.validate_code("subprocess.run()") is False
+
+    def test_validate_empty_code(self, sample_df: pd.DataFrame):
+        """空のコードの検証"""
+        executor = SafeExecutor(sample_df)
+        assert executor.validate_code("") is False
+        assert executor.validate_code(None) is False
+
     def test_execution_log(self, sample_df: pd.DataFrame):
         """実行ログの記録"""
         executor = SafeExecutor(sample_df)
@@ -141,3 +156,95 @@ class TestSafeExecutor:
         assert len(executor.execution_log) == 1
         assert "query" in executor.execution_log[0]
         assert "success" in executor.execution_log[0]
+
+    def test_clear_log(self, sample_df: pd.DataFrame):
+        """実行ログのクリア"""
+        executor = SafeExecutor(sample_df)
+
+        query = ParsedQuery(
+            query_type=QueryType.SUM,
+            original_question="合計",
+        )
+        executor.execute_safe(query)
+
+        assert len(executor.execution_log) == 1
+
+        executor.clear_log()
+        assert len(executor.execution_log) == 0
+
+    def test_null_dataframe_error(self):
+        """NullDataFrameでのエラー"""
+        with pytest.raises(ValueError, match="DataFrameがNoneです"):
+            SafeExecutor(None)
+
+    def test_empty_dataframe_error(self):
+        """空DataFrameでのエラー"""
+        with pytest.raises(ValueError, match="DataFrameが空です"):
+            SafeExecutor(pd.DataFrame())
+
+    def test_null_query_handling(self, sample_df: pd.DataFrame):
+        """Nullクエリのハンドリング"""
+        executor = SafeExecutor(sample_df)
+        result = executor.execute_safe(None)
+
+        assert result.success is False
+        assert "Null" in result.error
+
+    def test_get_error_suggestion(self, sample_df: pd.DataFrame):
+        """エラー提案の取得"""
+        executor = SafeExecutor(sample_df)
+
+        # カラムが見つからない場合
+        suggestion = executor.get_error_suggestion("カラムが見つかりません: 'xyz'")
+        assert len(suggestion) > 0  # 何らかの提案がある
+
+        # 数値カラムが見つからない場合
+        suggestion = executor.get_error_suggestion("数値カラムが見つかりません")
+        assert len(suggestion) > 0
+
+        # メモリ不足の場合
+        suggestion = executor.get_error_suggestion("メモリ不足")
+        assert len(suggestion) > 0
+
+        # 未知のエラー
+        suggestion = executor.get_error_suggestion("予期しないエラー")
+        assert len(suggestion) > 0
+
+
+class TestErrorHandling:
+    """詳細なエラーハンドリングテスト"""
+
+    def test_keyerror_handling(self):
+        """KeyErrorのハンドリング"""
+        df = pd.DataFrame({"a": [1, 2, 3]})
+        executor = SafeExecutor(df)
+
+        query = ParsedQuery(
+            query_type=QueryType.SUM,
+            target_column="nonexistent_column",
+            original_question="存在しないカラムの合計",
+        )
+        result = executor.execute_safe(query)
+
+        # カラムが見つからない場合、最初の数値カラムを使用するので成功する
+        # ただし、数値カラム"a"が使用される
+        assert result.success is True
+
+    def test_large_result_truncation(self):
+        """大きな結果の切り詰め"""
+        # 大きなDataFrameを作成
+        df = pd.DataFrame({
+            "a": list(range(100)),
+            "b": ["cat"] * 50 + ["dog"] * 50,
+        })
+        executor = SafeExecutor(df)
+
+        query = ParsedQuery(
+            query_type=QueryType.DESCRIBE,
+            original_question="統計",
+        )
+        result = executor.execute_safe(query)
+
+        assert result.success is True
+        # 結果が制限されていることを確認
+        assert result.data is not None

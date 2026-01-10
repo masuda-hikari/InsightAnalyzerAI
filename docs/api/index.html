@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API仕様書 - InsightAnalyzerAI</title>
+    <meta name="description" content="InsightAnalyzerAI API仕様書。Python SDKとREST APIの使用方法を解説。">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Source+Code+Pro:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #FF6B6B;
+            --secondary: #4ECDC4;
+            --dark: #2C3E50;
+            --light: #F8F9FA;
+            --gray: #6C757D;
+            --code-bg: #1E1E1E;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            line-height: 1.7;
+            color: var(--dark);
+            background: var(--light);
+        }
+        .container { max-width: 1000px; margin: 0 auto; padding: 0 20px; }
+        header {
+            background: white;
+            border-bottom: 1px solid #eee;
+            padding: 20px 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        nav { display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 1.3rem; font-weight: 700; color: var(--primary); text-decoration: none; }
+        .nav-links a { margin-left: 25px; text-decoration: none; color: var(--dark); font-weight: 500; }
+        .nav-links a:hover { color: var(--primary); }
+        main { padding: 60px 0; }
+        h1 { font-size: 2.5rem; margin-bottom: 20px; color: var(--dark); }
+        h2 { font-size: 1.8rem; margin: 50px 0 20px; color: var(--dark); border-bottom: 2px solid var(--primary); padding-bottom: 10px; }
+        h3 { font-size: 1.3rem; margin: 30px 0 15px; color: var(--dark); }
+        p { margin-bottom: 15px; color: var(--gray); }
+        .intro { font-size: 1.1rem; color: var(--gray); margin-bottom: 40px; }
+        .toc { background: white; padding: 25px; border-radius: 10px; margin-bottom: 40px; }
+        .toc h3 { margin: 0 0 15px; }
+        .toc ul { list-style: none; }
+        .toc li { padding: 8px 0; }
+        .toc a { color: var(--primary); text-decoration: none; }
+        .toc a:hover { text-decoration: underline; }
+        .code-block {
+            background: var(--code-bg);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 15px 0;
+            overflow-x: auto;
+        }
+        .code-block code {
+            font-family: 'Source Code Pro', monospace;
+            color: #D4D4D4;
+            font-size: 0.9rem;
+            line-height: 1.6;
+        }
+        .code-block .comment { color: #6A9955; }
+        .code-block .keyword { color: #569CD6; }
+        .code-block .string { color: #CE9178; }
+        .code-block .function { color: #DCDCAA; }
+        .code-block .class { color: #4EC9B0; }
+        .code-block .number { color: #B5CEA8; }
+        .endpoint-card {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            margin: 20px 0;
+            border-left: 4px solid var(--primary);
+        }
+        .method { display: inline-block; padding: 5px 12px; border-radius: 5px; font-weight: 700; font-size: 0.85rem; margin-right: 10px; }
+        .method.get { background: #61AFFE; color: white; }
+        .method.post { background: #49CC90; color: white; }
+        .method.put { background: #FCA130; color: white; }
+        .method.delete { background: #F93E3E; color: white; }
+        .endpoint-path { font-family: 'Source Code Pro', monospace; font-size: 1rem; color: var(--dark); }
+        .params-table { width: 100%; margin: 20px 0; border-collapse: collapse; }
+        .params-table th, .params-table td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #eee; }
+        .params-table th { background: var(--light); font-weight: 500; color: var(--dark); }
+        .params-table td { color: var(--gray); }
+        .required { color: var(--primary); font-size: 0.8rem; font-weight: 500; }
+        .type { font-family: 'Source Code Pro', monospace; font-size: 0.85rem; color: #6C757D; background: #f0f0f0; padding: 2px 8px; border-radius: 3px; }
+        .response-example { background: #f8f9fa; border-radius: 8px; padding: 15px; margin-top: 15px; }
+        footer { background: var(--dark); color: white; padding: 40px 0; text-align: center; }
+        footer a { color: rgba(255,255,255,0.7); }
+        @media (max-width: 768px) {
+            h1 { font-size: 1.8rem; }
+            h2 { font-size: 1.4rem; }
+            .nav-links { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <nav>
+                <a href="../" class="logo">📊 InsightAnalyzerAI</a>
+                <div class="nav-links">
+                    <a href="../">ホーム</a>
+                    <a href="#">API仕様書</a>
+                    <a href="../guide/">ユーザーガイド</a>
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        <h1>API仕様書</h1>
+        <p class="intro">InsightAnalyzerAI Python SDKおよびREST APIの使用方法を解説します。</p>
+
+        <div class="toc">
+            <h3>目次</h3>
+            <ul>
+                <li><a href="#installation">インストール</a></li>
+                <li><a href="#quickstart">クイックスタート</a></li>
+                <li><a href="#analyzer">InsightAnalyzerクラス</a></li>
+                <li><a href="#result">AnalysisResultクラス</a></li>
+                <li><a href="#llm">LLM統合</a></li>
+                <li><a href="#visualization">可視化</a></li>
+                <li><a href="#auth">認証</a></li>
+                <li><a href="#errors">エラーハンドリング</a></li>
+            </ul>
+        </div>
+
+        <h2 id="installation">インストール</h2>
+        <p>InsightAnalyzerAIをインストールするには、以下のコマンドを実行します。</p>
+        <div class="code-block">
+<code><span class="comment"># pipでインストール</span>
+pip install -r requirements.txt
+
+<span class="comment"># または個別にインストール</span>
+pip install pandas numpy matplotlib plotly openai streamlit</code>
+        </div>
+
+        <h2 id="quickstart">クイックスタート</h2>
+        <p>基本的な使用方法を示します。</p>
+        <div class="code-block">
+<code><span class="keyword">from</span> src.insight_analyzer <span class="keyword">import</span> <span class="class">InsightAnalyzer</span>
+
+<span class="comment"># CSVファイルを読み込み</span>
+analyzer = <span class="class">InsightAnalyzer</span>(<span class="string">"data/sales.csv"</span>)
+
+<span class="comment"># 自然言語で質問</span>
+result = analyzer.<span class="function">ask</span>(<span class="string">"売上の合計を教えて"</span>)
+<span class="keyword">print</span>(result.answer)
+<span class="comment"># => "売上の合計は ¥45,800,000 です"</span>
+
+<span class="comment"># チャート付きで分析</span>
+result = analyzer.<span class="function">ask</span>(
+    <span class="string">"地域別の売上を教えて"</span>,
+    generate_chart=<span class="keyword">True</span>,
+    explain_result=<span class="keyword">True</span>
+)
+
+<span class="comment"># チャートを表示</span>
+result.<span class="function">show_chart</span>()</code>
+        </div>
+
+        <h2 id="analyzer">InsightAnalyzerクラス</h2>
+        <p>データ分析のメインクラスです。</p>
+
+        <h3>コンストラクタ</h3>
+        <div class="code-block">
+<code><span class="class">InsightAnalyzer</span>(
+    data: <span class="type">Union[str, pd.DataFrame]</span>,
+    use_llm: <span class="type">bool</span> = <span class="keyword">True</span>
+)</code>
+        </div>
+        <table class="params-table">
+            <thead>
+                <tr><th>パラメータ</th><th>型</th><th>説明</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>data <span class="required">必須</span></td><td><span class="type">str | DataFrame</span></td><td>ファイルパスまたはDataFrame</td></tr>
+                <tr><td>use_llm</td><td><span class="type">bool</span></td><td>LLM統合を使用するか（デフォルト: True）</td></tr>
+            </tbody>
+        </table>
+
+        <h3>ask() メソッド</h3>
+        <p>自然言語で質問を行い、分析結果を取得します。</p>
+        <div class="code-block">
+<code>analyzer.<span class="function">ask</span>(
+    question: <span class="type">str</span>,
+    generate_chart: <span class="type">bool</span> = <span class="keyword">False</span>,
+    explain_result: <span class="type">bool</span> = <span class="keyword">False</span>
+) -> <span class="class">AnalysisResult</span></code>
+        </div>
+        <table class="params-table">
+            <thead>
+                <tr><th>パラメータ</th><th>型</th><th>説明</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>question <span class="required">必須</span></td><td><span class="type">str</span></td><td>日本語または英語の質問</td></tr>
+                <tr><td>generate_chart</td><td><span class="type">bool</span></td><td>チャートを生成するか</td></tr>
+                <tr><td>explain_result</td><td><span class="type">bool</span></td><td>LLMで結果を説明するか</td></tr>
+            </tbody>
+        </table>
+
+        <h3>get_insights() メソッド</h3>
+        <p>データの自動インサイトを取得します。</p>
+        <div class="code-block">
+<code>insights = analyzer.<span class="function">get_insights</span>()
+<span class="keyword">for</span> insight <span class="keyword">in</span> insights:
+    <span class="keyword">print</span>(insight)
+<span class="comment"># => "行数: 1,000件"</span>
+<span class="comment"># => "数値列: 5列"</span>
+<span class="comment"># => "欠損値: 売上列に2.5%"</span></code>
+        </div>
+
+        <h3>プロパティ</h3>
+        <table class="params-table">
+            <thead>
+                <tr><th>プロパティ</th><th>型</th><th>説明</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>dataframe</td><td><span class="type">pd.DataFrame</span></td><td>読み込んだデータ</td></tr>
+                <tr><td>schema</td><td><span class="type">str</span></td><td>スキーマ情報（列名と型）</td></tr>
+                <tr><td>llm_available</td><td><span class="type">bool</span></td><td>LLMが利用可能か</td></tr>
+            </tbody>
+        </table>
+
+        <h2 id="result">AnalysisResultクラス</h2>
+        <p>分析結果を格納するデータクラスです。</p>
+
+        <table class="params-table">
+            <thead>
+                <tr><th>属性</th><th>型</th><th>説明</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>success</td><td><span class="type">bool</span></td><td>分析が成功したか</td></tr>
+                <tr><td>answer</td><td><span class="type">str</span></td><td>回答テキスト</td></tr>
+                <tr><td>data</td><td><span class="type">pd.DataFrame | None</span></td><td>結果データ</td></tr>
+                <tr><td>query_used</td><td><span class="type">str | None</span></td><td>実行されたPythonコード</td></tr>
+                <tr><td>execution_time_ms</td><td><span class="type">float</span></td><td>実行時間（ミリ秒）</td></tr>
+                <tr><td>confidence</td><td><span class="type">float</span></td><td>信頼度スコア（0.0-1.0）</td></tr>
+                <tr><td>llm_used</td><td><span class="type">bool</span></td><td>LLMを使用したか</td></tr>
+                <tr><td>llm_explanation</td><td><span class="type">str | None</span></td><td>LLMによる説明</td></tr>
+                <tr><td>chart_path</td><td><span class="type">str | None</span></td><td>生成したチャートのパス</td></tr>
+                <tr><td>error</td><td><span class="type">str | None</span></td><td>エラーメッセージ</td></tr>
+            </tbody>
+        </table>
+
+        <h2 id="llm">LLM統合</h2>
+        <p>OpenAI APIを使用して、自然言語からPandasコードを生成します。</p>
+
+        <h3>環境変数の設定</h3>
+        <div class="code-block">
+<code><span class="comment"># .envファイルまたは環境変数で設定</span>
+OPENAI_API_KEY=sk-your-api-key-here</code>
+        </div>
+
+        <h3>LLMHandlerクラス</h3>
+        <div class="code-block">
+<code><span class="keyword">from</span> src.llm_handler <span class="keyword">import</span> <span class="class">LLMHandler</span>
+
+<span class="comment"># 初期化</span>
+llm = <span class="class">LLMHandler</span>()
+
+<span class="comment"># 自然言語からPandasコードを生成</span>
+code = llm.<span class="function">generate_code</span>(
+    question=<span class="string">"売上トップ10を表示"</span>,
+    schema=<span class="string">"商品名: str, 売上: int, 地域: str"</span>
+)
+<span class="comment"># => "result = df.nlargest(10, '売上')[['商品名', '売上']]"</span>
+
+<span class="comment"># 結果を自然言語で説明</span>
+explanation = llm.<span class="function">explain_result</span>(
+    question=<span class="string">"売上トップ10を表示"</span>,
+    result_summary=<span class="string">"10件のデータ、合計: ¥45M"</span>
+)</code>
+        </div>
+
+        <h2 id="visualization">可視化</h2>
+        <p>データ可視化機能の使用方法です。</p>
+
+        <h3>Visualizerクラス</h3>
+        <div class="code-block">
+<code><span class="keyword">from</span> src.visualizer <span class="keyword">import</span> <span class="class">Visualizer</span>
+
+vis = <span class="class">Visualizer</span>()
+
+<span class="comment"># 棒グラフ</span>
+vis.<span class="function">bar_chart</span>(df, x=<span class="string">'category'</span>, y=<span class="string">'sales'</span>, title=<span class="string">'カテゴリ別売上'</span>)
+
+<span class="comment"># 折れ線グラフ</span>
+vis.<span class="function">line_chart</span>(df, x=<span class="string">'month'</span>, y=<span class="string">'sales'</span>, title=<span class="string">'月別推移'</span>)
+
+<span class="comment"># 円グラフ</span>
+vis.<span class="function">pie_chart</span>(df, values=<span class="string">'sales'</span>, names=<span class="string">'region'</span>, title=<span class="string">'地域構成比'</span>)
+
+<span class="comment"># 自動チャートタイプ選択</span>
+vis.<span class="function">auto_chart</span>(df, question=<span class="string">'地域別売上'</span>)</code>
+        </div>
+
+        <h2 id="auth">認証</h2>
+        <p>ユーザー認証とプラン管理機能です。</p>
+
+        <h3>プランタイプ</h3>
+        <table class="params-table">
+            <thead>
+                <tr><th>プラン</th><th>ファイル上限</th><th>クエリ上限</th><th>機能</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>FREE</td><td>1MB</td><td>10/日</td><td>基本チャート</td></tr>
+                <tr><td>BASIC</td><td>50MB</td><td>100/日</td><td>全チャート + AI解説</td></tr>
+                <tr><td>PRO</td><td>500MB</td><td>無制限</td><td>API連携 + チーム共有</td></tr>
+                <tr><td>ENTERPRISE</td><td>カスタム</td><td>無制限</td><td>オンプレミス</td></tr>
+            </tbody>
+        </table>
+
+        <h3>AuthManagerクラス</h3>
+        <div class="code-block">
+<code><span class="keyword">from</span> src.auth <span class="keyword">import</span> <span class="class">AuthManager</span>, <span class="class">PlanType</span>
+
+auth = <span class="class">AuthManager</span>()
+
+<span class="comment"># ユーザー登録</span>
+user = auth.<span class="function">register</span>(
+    email=<span class="string">"user@example.com"</span>,
+    password=<span class="string">"secure_password"</span>
+)
+
+<span class="comment"># ログイン</span>
+success = auth.<span class="function">login</span>(
+    email=<span class="string">"user@example.com"</span>,
+    password=<span class="string">"secure_password"</span>
+)
+
+<span class="comment"># 使用制限チェック</span>
+can_query, msg = auth.<span class="function">can_execute_query</span>()
+can_upload, msg = auth.<span class="function">can_upload_file</span>(file_size_bytes)</code>
+        </div>
+
+        <h2 id="errors">エラーハンドリング</h2>
+        <p>エラー処理のベストプラクティスです。</p>
+
+        <div class="code-block">
+<code><span class="keyword">from</span> src.insight_analyzer <span class="keyword">import</span> <span class="class">InsightAnalyzer</span>
+
+<span class="keyword">try</span>:
+    analyzer = <span class="class">InsightAnalyzer</span>(<span class="string">"data.csv"</span>)
+    result = analyzer.<span class="function">ask</span>(<span class="string">"売上合計"</span>)
+
+    <span class="keyword">if</span> result.success:
+        <span class="keyword">print</span>(result.answer)
+    <span class="keyword">else</span>:
+        <span class="keyword">print</span>(<span class="string">f"分析エラー: </span>{result.error}<span class="string">"</span>)
+
+<span class="keyword">except</span> <span class="class">FileNotFoundError</span>:
+    <span class="keyword">print</span>(<span class="string">"ファイルが見つかりません"</span>)
+<span class="keyword">except</span> <span class="class">ValueError</span> <span class="keyword">as</span> e:
+    <span class="keyword">print</span>(<span class="string">f"データ形式エラー: </span>{e}<span class="string">"</span>)
+<span class="keyword">except</span> <span class="class">Exception</span> <span class="keyword">as</span> e:
+    <span class="keyword">print</span>(<span class="string">f"予期せぬエラー: </span>{e}<span class="string">"</span>)</code>
+        </div>
+
+        <h3>エラーコード一覧</h3>
+        <table class="params-table">
+            <thead>
+                <tr><th>エラー</th><th>原因</th><th>対処法</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>FileNotFoundError</td><td>ファイルが存在しない</td><td>パスを確認</td></tr>
+                <tr><td>ValueError</td><td>データ形式が不正</td><td>CSV/Excel/Parquet形式を確認</td></tr>
+                <tr><td>PermissionError</td><td>ファイルアクセス権限なし</td><td>権限を確認</td></tr>
+                <tr><td>QueryExecutionError</td><td>クエリ実行失敗</td><td>質問を再入力</td></tr>
+                <tr><td>LLMError</td><td>LLM API呼び出し失敗</td><td>APIキーを確認</td></tr>
+                <tr><td>QuotaExceededError</td><td>使用制限超過</td><td>プランをアップグレード</td></tr>
+            </tbody>
+        </table>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2026 InsightAnalyzerAI. <a href="../">ホームに戻る</a></p>
+        </div>
+    </footer>
+</body>
+</html>

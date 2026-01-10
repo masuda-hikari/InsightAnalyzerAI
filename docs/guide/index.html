@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ユーザーガイド - InsightAnalyzerAI</title>
+    <meta name="description" content="InsightAnalyzerAIの使い方ガイド。初心者でもすぐに始められるステップバイステップ解説。">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #FF6B6B;
+            --secondary: #4ECDC4;
+            --dark: #2C3E50;
+            --light: #F8F9FA;
+            --gray: #6C757D;
+            --success: #28A745;
+            --warning: #FFC107;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            line-height: 1.8;
+            color: var(--dark);
+            background: var(--light);
+        }
+        .container { max-width: 900px; margin: 0 auto; padding: 0 20px; }
+        header {
+            background: white;
+            border-bottom: 1px solid #eee;
+            padding: 20px 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        nav { display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 1.3rem; font-weight: 700; color: var(--primary); text-decoration: none; }
+        .nav-links a { margin-left: 25px; text-decoration: none; color: var(--dark); font-weight: 500; }
+        .nav-links a:hover { color: var(--primary); }
+        main { padding: 60px 0; }
+        h1 { font-size: 2.5rem; margin-bottom: 20px; }
+        h2 { font-size: 1.8rem; margin: 50px 0 20px; color: var(--dark); }
+        h3 { font-size: 1.3rem; margin: 30px 0 15px; color: var(--dark); }
+        p { margin-bottom: 15px; color: var(--gray); }
+        .intro { font-size: 1.1rem; color: var(--gray); margin-bottom: 40px; }
+        .toc { background: white; padding: 25px; border-radius: 10px; margin-bottom: 40px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .toc h3 { margin: 0 0 15px; }
+        .toc ul { list-style: none; }
+        .toc li { padding: 8px 0; }
+        .toc a { color: var(--primary); text-decoration: none; }
+        .toc a:hover { text-decoration: underline; }
+        .step-card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin: 20px 0;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.08);
+        }
+        .step-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            background: var(--primary);
+            color: white;
+            border-radius: 50%;
+            font-weight: 700;
+            margin-right: 15px;
+        }
+        .step-title { display: flex; align-items: center; margin-bottom: 15px; font-size: 1.2rem; font-weight: 700; }
+        .tip-box {
+            background: #E8F5E9;
+            border-left: 4px solid var(--success);
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        .tip-box::before { content: "💡 "; font-weight: 700; }
+        .warning-box {
+            background: #FFF8E1;
+            border-left: 4px solid var(--warning);
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        .warning-box::before { content: "⚠️ "; font-weight: 700; }
+        .example-query {
+            background: var(--light);
+            padding: 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            margin: 10px 0;
+        }
+        .example-query strong { color: var(--primary); }
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+        .feature-item {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        .feature-icon { font-size: 2.5rem; margin-bottom: 10px; }
+        .faq-item {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 15px 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        .faq-question { font-weight: 700; color: var(--dark); margin-bottom: 10px; }
+        .faq-answer { color: var(--gray); }
+        .img-placeholder {
+            background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%);
+            border-radius: 10px;
+            padding: 60px 20px;
+            text-align: center;
+            color: var(--gray);
+            margin: 20px 0;
+        }
+        .btn {
+            display: inline-block;
+            padding: 15px 35px;
+            background: var(--primary);
+            color: white;
+            text-decoration: none;
+            border-radius: 30px;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+        .btn:hover { background: #E55555; transform: translateY(-2px); box-shadow: 0 5px 20px rgba(255,107,107,0.3); }
+        footer { background: var(--dark); color: white; padding: 40px 0; text-align: center; }
+        footer a { color: rgba(255,255,255,0.7); }
+        @media (max-width: 768px) {
+            h1 { font-size: 1.8rem; }
+            h2 { font-size: 1.4rem; }
+            .nav-links { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <nav>
+                <a href="../" class="logo">📊 InsightAnalyzerAI</a>
+                <div class="nav-links">
+                    <a href="../">ホーム</a>
+                    <a href="../api/">API仕様書</a>
+                    <a href="#">ユーザーガイド</a>
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        <h1>ユーザーガイド</h1>
+        <p class="intro">InsightAnalyzerAIを使ったデータ分析の始め方を、ステップバイステップで解説します。プログラミングの知識は一切不要です。</p>
+
+        <div class="toc">
+            <h3>目次</h3>
+            <ul>
+                <li><a href="#overview">概要</a></li>
+                <li><a href="#getting-started">使い始める</a></li>
+                <li><a href="#questions">質問の仕方</a></li>
+                <li><a href="#charts">チャートを活用する</a></li>
+                <li><a href="#tips">分析のコツ</a></li>
+                <li><a href="#plans">プランと料金</a></li>
+                <li><a href="#faq">よくある質問</a></li>
+            </ul>
+        </div>
+
+        <h2 id="overview">概要</h2>
+        <p>InsightAnalyzerAIは、日本語でデータに質問するだけで、AIが自動的に分析を実行するツールです。</p>
+
+        <div class="feature-grid">
+            <div class="feature-item">
+                <div class="feature-icon">💬</div>
+                <h4>自然言語で質問</h4>
+                <p>「売上の合計は？」のように普通の日本語で質問</p>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">⚡</div>
+                <h4>即座に分析</h4>
+                <p>AIが数秒で分析を実行し回答</p>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">📊</div>
+                <h4>チャート自動生成</h4>
+                <p>最適なグラフを自動で選択・作成</p>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">🔒</div>
+                <h4>安全・安心</h4>
+                <p>データは分析後に削除されます</p>
+            </div>
+        </div>
+
+        <h2 id="getting-started">使い始める</h2>
+
+        <div class="step-card">
+            <div class="step-title">
+                <span class="step-number">1</span>
+                アプリにアクセス
+            </div>
+            <p><a href="https://insightanalyzerai.streamlit.app" target="_blank">https://insightanalyzerai.streamlit.app</a> をブラウザで開きます。</p>
+            <p>アカウント登録なしでも、無料プランの範囲で利用できます。</p>
+        </div>
+
+        <div class="step-card">
+            <div class="step-title">
+                <span class="step-number">2</span>
+                データをアップロード
+            </div>
+            <p>画面左のサイドバーから、分析したいデータファイルをアップロードします。</p>
+            <p><strong>対応形式:</strong> CSV、Excel (.xlsx, .xls)、Parquet</p>
+            <div class="tip-box">
+                まずは「サンプルデータを使用」ボタンをクリックして、機能をお試しください。
+            </div>
+        </div>
+
+        <div class="step-card">
+            <div class="step-title">
+                <span class="step-number">3</span>
+                質問を入力
+            </div>
+            <p>テキストボックスに、知りたいことを日本語で入力します。</p>
+            <div class="example-query">
+                <strong>例:</strong> 「売上の合計を教えて」
+            </div>
+            <p>質問例ボタンをクリックすると、よく使われる質問を自動入力できます。</p>
+        </div>
+
+        <div class="step-card">
+            <div class="step-title">
+                <span class="step-number">4</span>
+                結果を確認
+            </div>
+            <p>「分析実行」ボタンをクリックすると、AIが分析を行い結果を表示します。</p>
+            <ul style="margin-left: 20px; color: var(--gray);">
+                <li>回答テキスト（日本語での分析結果）</li>
+                <li>チャート（グラフが適切な場合は自動生成）</li>
+                <li>詳細データ（表形式のデータ）</li>
+                <li>実行情報（実行時間、信頼度など）</li>
+            </ul>
+        </div>
+
+        <h2 id="questions">質問の仕方</h2>
+        <p>InsightAnalyzerAIは、自然な日本語を理解します。以下のような質問ができます。</p>
+
+        <h3>数値の集計</h3>
+        <div class="example-query">
+            「売上の合計は？」<br>
+            「平均単価を計算して」<br>
+            「最大の取引金額は？」
+        </div>
+
+        <h3>グループ集計</h3>
+        <div class="example-query">
+            「地域別の売上を教えて」<br>
+            「カテゴリごとの平均を計算」<br>
+            「担当者別の売上合計」
+        </div>
+
+        <h3>ランキング・上位・下位</h3>
+        <div class="example-query">
+            「売上トップ10を表示」<br>
+            「最も売れている商品は？」<br>
+            「売上が低い地域は？」
+        </div>
+
+        <h3>フィルタリング</h3>
+        <div class="example-query">
+            「東京の売上だけ見せて」<br>
+            「1月のデータを表示」<br>
+            「売上が100万円以上のものは？」
+        </div>
+
+        <h3>概要・統計</h3>
+        <div class="example-query">
+            「データの概要を教えて」<br>
+            「統計情報を表示」<br>
+            「全体の傾向は？」
+        </div>
+
+        <div class="tip-box">
+            <strong>より良い結果を得るコツ:</strong> 列名をそのまま使うと精度が上がります。例えば「sales_amount」という列があれば「sales_amountの合計」のように質問できます。
+        </div>
+
+        <h2 id="charts">チャートを活用する</h2>
+        <p>「チャートを生成」オプションをオンにすると、分析結果に適したグラフが自動生成されます。</p>
+
+        <div class="feature-grid">
+            <div class="feature-item">
+                <div class="feature-icon">📊</div>
+                <h4>棒グラフ</h4>
+                <p>カテゴリ別の比較に最適</p>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">📈</div>
+                <h4>折れ線グラフ</h4>
+                <p>時系列の推移を表示</p>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">🥧</div>
+                <h4>円グラフ</h4>
+                <p>構成比を視覚化</p>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">⚬</div>
+                <h4>散布図</h4>
+                <p>2変数の関係を表示</p>
+            </div>
+        </div>
+
+        <p>生成されたチャートはインタラクティブです。ホバーで詳細を確認したり、ズームしたりできます。</p>
+
+        <h2 id="tips">分析のコツ</h2>
+
+        <div class="tip-box">
+            <strong>データの確認:</strong> 分析前に「データ情報」タブでスキーマ（列名と型）を確認しましょう。列名を正確に使うことで、より精度の高い分析ができます。
+        </div>
+
+        <div class="tip-box">
+            <strong>段階的に分析:</strong> まず「データの概要を教えて」で全体像を把握し、その後に具体的な質問をすると効率的です。
+        </div>
+
+        <div class="tip-box">
+            <strong>履歴を活用:</strong> 過去のクエリは「履歴」タブから確認できます。似たような分析を繰り返す場合に便利です。
+        </div>
+
+        <div class="warning-box">
+            <strong>大きなデータ:</strong> 大きなファイル（数万行以上）の場合、分析に時間がかかることがあります。
+        </div>
+
+        <h2 id="plans">プランと料金</h2>
+
+        <div class="step-card" style="text-align: center;">
+            <h3 style="margin-bottom: 30px;">シンプルな料金体系</h3>
+            <div class="feature-grid">
+                <div class="feature-item">
+                    <h4>Free</h4>
+                    <p style="font-size: 2rem; font-weight: 700; color: var(--primary);">¥0</p>
+                    <p>1MB/ファイル<br>10クエリ/日<br>基本チャート</p>
+                </div>
+                <div class="feature-item" style="border: 2px solid var(--primary);">
+                    <h4>Basic <span style="background: var(--primary); color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.8rem;">人気</span></h4>
+                    <p style="font-size: 2rem; font-weight: 700; color: var(--primary);">¥2,980</p>
+                    <p>50MB/ファイル<br>100クエリ/日<br>全機能</p>
+                </div>
+                <div class="feature-item">
+                    <h4>Pro</h4>
+                    <p style="font-size: 2rem; font-weight: 700; color: var(--primary);">¥9,800</p>
+                    <p>500MB/ファイル<br>無制限クエリ<br>API連携</p>
+                </div>
+            </div>
+        </div>
+
+        <h2 id="faq">よくある質問</h2>
+
+        <div class="faq-item">
+            <div class="faq-question">Q. アカウント登録は必要ですか？</div>
+            <div class="faq-answer">A. 無料プランの範囲であれば、アカウント登録なしで利用できます。有料機能を使用する場合は登録が必要です。</div>
+        </div>
+
+        <div class="faq-item">
+            <div class="faq-question">Q. データは安全ですか？</div>
+            <div class="faq-answer">A. はい。アップロードされたデータは分析処理後にサーバーから削除されます。第三者に共有されることはありません。</div>
+        </div>
+
+        <div class="faq-item">
+            <div class="faq-question">Q. どんなファイル形式に対応していますか？</div>
+            <div class="faq-answer">A. CSV、Excel（.xlsx, .xls）、Parquetに対応しています。最大ファイルサイズはプランにより異なります（Free: 1MB、Basic: 50MB、Pro: 500MB）。</div>
+        </div>
+
+        <div class="faq-item">
+            <div class="faq-question">Q. 英語のデータでも使えますか？</div>
+            <div class="faq-answer">A. はい。データの言語に関係なく分析できます。質問は日本語でも英語でも可能です。</div>
+        </div>
+
+        <div class="faq-item">
+            <div class="faq-question">Q. 分析結果が間違っていることはありますか？</div>
+            <div class="faq-answer">A. AIによる分析のため、稀に誤った解釈をすることがあります。重要な意思決定には、結果の妥当性を確認することをお勧めします。信頼度スコアも参考にしてください。</div>
+        </div>
+
+        <div class="faq-item">
+            <div class="faq-question">Q. 解約はいつでもできますか？</div>
+            <div class="faq-answer">A. はい。有料プランはいつでも解約可能で、次の請求日まで機能を利用できます。</div>
+        </div>
+
+        <div style="text-align: center; margin-top: 60px;">
+            <h3 style="margin-bottom: 20px;">今すぐ始めましょう</h3>
+            <p style="color: var(--gray); margin-bottom: 30px;">無料でデータ分析を体験できます</p>
+            <a href="https://insightanalyzerai.streamlit.app" class="btn" target="_blank">アプリを開く →</a>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2026 InsightAnalyzerAI. <a href="../">ホームに戻る</a></p>
+        </div>
+    </footer>
+</body>
+</html>

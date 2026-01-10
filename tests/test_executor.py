@@ -248,3 +248,454 @@ class TestErrorHandling:
         assert result.success is True
         # 結果が制限されていることを確認
         assert result.data is not None
+
+
+class TestQueryExecutorExtended:
+    """QueryExecutorの追加テスト"""
+
+    @pytest.fixture
+    def sample_df(self) -> pd.DataFrame:
+        """テスト用DataFrame"""
+        return pd.DataFrame({
+            "region": ["東京", "大阪", "東京", "大阪", "福岡"],
+            "sales": [100, 200, 150, 250, 300],
+            "quantity": [10, 20, 15, 25, 30],
+            "price": [10.0, 10.0, 10.0, 10.0, 10.0],
+        })
+
+    @pytest.fixture
+    def executor(self, sample_df: pd.DataFrame) -> QueryExecutor:
+        """Executorインスタンス"""
+        return QueryExecutor(sample_df)
+
+    def test_execute_sum_no_column(self, sample_df: pd.DataFrame):
+        """カラム指定なしの合計実行"""
+        executor = QueryExecutor(sample_df)
+        query = ParsedQuery(
+            query_type=QueryType.SUM,
+            target_column=None,  # カラム指定なし
+        )
+        result = executor.execute(query)
+
+        assert result.success is True
+        # 最初の数値カラム（sales）の合計
+        assert result.value == 1000  # 100+200+150+250+300
+
+    def test_execute_sum_invalid_column(self, sample_df: pd.DataFrame):
+        """無効なカラムでの合計実行"""
+        executor = QueryExecutor(sample_df)
+        query = ParsedQuery(
+            query_type=QueryType.SUM,
+            target_column="invalid_column",
+        )
+        result = executor.execute(query)
+
+        # 無効なカラムの場合は最初の数値カラムを使用
+        assert result.success is True
+        assert result.value == 1000
+
+    def test_execute_sum_no_numeric_columns(self):
+        """数値カラムなしでの合計実行"""
+        df = pd.DataFrame({"text": ["a", "b", "c"]})
+        executor = QueryExecutor(df)
+        query = ParsedQuery(
+            query_type=QueryType.SUM,
+            target_column=None,
+        )
+        result = executor.execute(query)
+
+        assert result.success is False
+        assert "数値カラムが見つかりません" in result.error
+
+    def test_execute_mean_no_column(self, sample_df: pd.DataFrame):
+        """カラム指定なしの平均実行"""
+        executor = QueryExecutor(sample_df)
+        query = ParsedQuery(
+            query_type=QueryType.MEAN,
+            target_column=None,
+        )
+        result = executor.execute(query)
+
+        assert result.success is True
+        assert result.value == 200  # (100+200+150+250+300)/5
+
+    def test_execute_mean_no_numeric_columns(self):
+        """数値カラムなしでの平均実行"""
+        df = pd.DataFrame({"text": ["a", "b", "c"]})
+        executor = QueryExecutor(df)
+        query = ParsedQuery(
+            query_type=QueryType.MEAN,
+            target_column=None,
+        )
+        result = executor.execute(query)
+
+        assert result.success is False
+        assert "数値カラムが見つかりません" in result.error
+
+    def test_execute_groupby_no_group_column(self, sample_df: pd.DataFrame):
+        """グループカラム指定なしのグループ集計"""
+        executor = QueryExecutor(sample_df)
+        query = ParsedQuery(
+            query_type=QueryType.GROUPBY,
+            group_column=None,
+            target_column="sales",
+        )
+        result = executor.execute(query)
+
+        # 最初のオブジェクトカラム（region）でグループ化
+        assert result.success is True
+        assert result.data is not None
+
+    def test_execute_groupby_no_categorical_columns(self):
+        """カテゴリカラムなしでのグループ集計"""
+        df = pd.DataFrame({"a": [1, 2, 3], "b": [4, 5, 6]})
+        executor = QueryExecutor(df)
+        query = ParsedQuery(
+            query_type=QueryType.GROUPBY,
+            group_column=None,
+            target_column="a",
+        )
+        result = executor.execute(query)
+
+        assert result.success is False
+        assert "グループ化カラムが見つかりません" in result.error
+
+    def test_execute_groupby_count_without_target(self, sample_df: pd.DataFrame):
+        """ターゲットカラムなしでのグループ件数"""
+        executor = QueryExecutor(sample_df)
+        query = ParsedQuery(
+            query_type=QueryType.GROUPBY,
+            group_column="region",
+            target_column=None,
+        )
+        result = executor.execute(query)
+
+        assert result.success is True
+        assert result.data is not None
+        assert "size()" in result.query_code
+
+    def test_execute_groupby_with_mean_aggregation(self, sample_df: pd.DataFrame):
+        """平均集計でのグループ集計"""
+        executor = QueryExecutor(sample_df)
+        query = ParsedQuery(
+            query_type=QueryType.GROUPBY,
+            group_column="region",
+            target_column="sales",
+            aggregation="mean",
+        )
+        result = executor.execute(query)
+
+        assert result.success is True
+        assert result.data is not None
+        assert "mean()" in result.query_code
+
+    def test_execute_groupby_with_count_aggregation(self, sample_df: pd.DataFrame):
+        """件数集計でのグループ集計"""
+        executor = QueryExecutor(sample_df)
+        query = ParsedQuery(
+            query_type=QueryType.GROUPBY,
+            group_column="region",
+            target_column="sales",
+            aggregation="count",
+        )
+        result = executor.execute(query)
+
+        assert result.success is True
+        assert result.data is not None
+        assert "count()" in result.query_code
+
+    def test_execute_groupby_with_default_aggregation(self, sample_df: pd.DataFrame):
+        """デフォルト集計（sum）でのグループ集計"""
+        executor = QueryExecutor(sample_df)
+        query = ParsedQuery(
+            query_type=QueryType.GROUPBY,
+            group_column="region",
+            target_column="sales",
+            aggregation="unknown",  # 未知の集計方法
+        )
+        result = executor.execute(query)
+
+        # デフォルトでsumになる
+        assert result.success is True
+        assert result.data is not None
+
+    def test_execute_filter_with_conditions(self, sample_df: pd.DataFrame):
+        """条件付きフィルタ実行"""
+        executor = QueryExecutor(sample_df)
+        query = ParsedQuery(
+            query_type=QueryType.FILTER,
+            target_column="sales",
+            filter_conditions=[
+                {"column": "sales", "operator": ">=", "value": 200},
+            ],
+        )
+        result = executor.execute(query)
+
+        assert result.success is True
+        assert result.data is not None
+        assert len(result.data) == 3  # 200, 250, 300
+
+    def test_execute_filter_less_than(self, sample_df: pd.DataFrame):
+        """未満条件のフィルタ"""
+        executor = QueryExecutor(sample_df)
+        query = ParsedQuery(
+            query_type=QueryType.FILTER,
+            target_column="sales",
+            filter_conditions=[
+                {"column": "sales", "operator": "<", "value": 200},
+            ],
+        )
+        result = executor.execute(query)
+
+        assert result.success is True
+        assert len(result.data) == 2  # 100, 150
+
+    def test_execute_filter_greater_than(self, sample_df: pd.DataFrame):
+        """超過条件のフィルタ"""
+        executor = QueryExecutor(sample_df)
+        query = ParsedQuery(
+            query_type=QueryType.FILTER,
+            target_column="sales",
+            filter_conditions=[
+                {"column": "sales", "operator": ">", "value": 200},
+            ],
+        )
+        result = executor.execute(query)
+
+        assert result.success is True
+        assert len(result.data) == 2  # 250, 300
+
+    def test_execute_filter_less_than_or_equal(self, sample_df: pd.DataFrame):
+        """以下条件のフィルタ"""
+        executor = QueryExecutor(sample_df)
+        query = ParsedQuery(
+            query_type=QueryType.FILTER,
+            target_column="sales",
+            filter_conditions=[
+                {"column": "sales", "operator": "<=", "value": 150},
+            ],
+        )
+        result = executor.execute(query)
+
+        assert result.success is True
+        assert len(result.data) == 2  # 100, 150
+
+    def test_execute_filter_equal(self, sample_df: pd.DataFrame):
+        """等価条件のフィルタ"""
+        executor = QueryExecutor(sample_df)
+        query = ParsedQuery(
+            query_type=QueryType.FILTER,
+            target_column="sales",
+            filter_conditions=[
+                {"column": "sales", "operator": "==", "value": 200},
+            ],
+        )
+        result = executor.execute(query)
+
+        assert result.success is True
+        assert len(result.data) == 1
+
+    def test_execute_filter_no_column(self, sample_df: pd.DataFrame):
+        """カラム指定なしの条件でのフィルタ"""
+        executor = QueryExecutor(sample_df)
+        query = ParsedQuery(
+            query_type=QueryType.FILTER,
+            target_column="sales",
+            filter_conditions=[
+                {"column": None, "operator": ">=", "value": 200},
+            ],
+        )
+        result = executor.execute(query)
+
+        # target_columnが使用される
+        assert result.success is True
+        assert len(result.data) == 3
+
+    def test_execute_filter_empty_conditions(self, sample_df: pd.DataFrame):
+        """空の条件でのフィルタ"""
+        executor = QueryExecutor(sample_df)
+        query = ParsedQuery(
+            query_type=QueryType.FILTER,
+            filter_conditions=[],
+        )
+        result = executor.execute(query)
+
+        # 全データが返される
+        assert result.success is True
+        assert len(result.data) == 5
+
+    def test_execute_sort_no_column(self, sample_df: pd.DataFrame):
+        """カラム指定なしのソート"""
+        executor = QueryExecutor(sample_df)
+        query = ParsedQuery(
+            query_type=QueryType.SORT,
+            target_column=None,
+            sort_ascending=True,
+        )
+        result = executor.execute(query)
+
+        # 最初の数値カラム（sales）でソート
+        assert result.success is True
+        assert result.data is not None
+        assert result.data.iloc[0]["sales"] == 100
+
+    def test_execute_sort_descending(self, sample_df: pd.DataFrame):
+        """降順ソート"""
+        executor = QueryExecutor(sample_df)
+        query = ParsedQuery(
+            query_type=QueryType.SORT,
+            target_column="sales",
+            sort_ascending=False,
+        )
+        result = executor.execute(query)
+
+        assert result.success is True
+        assert result.data.iloc[0]["sales"] == 300
+
+    def test_execute_sort_no_numeric_columns(self):
+        """数値カラムなしでのソート"""
+        df = pd.DataFrame({"text": ["c", "a", "b"]})
+        executor = QueryExecutor(df)
+        query = ParsedQuery(
+            query_type=QueryType.SORT,
+            target_column=None,
+            sort_ascending=True,
+        )
+        result = executor.execute(query)
+
+        # 最初のカラムでソート
+        assert result.success is True
+        assert result.data.iloc[0]["text"] == "a"
+
+    def test_execute_unknown_query_type(self, sample_df: pd.DataFrame):
+        """未知のクエリタイプ（describe実行）"""
+        executor = QueryExecutor(sample_df)
+        query = ParsedQuery(query_type=QueryType.UNKNOWN)
+        result = executor.execute(query)
+
+        # UNKNOWNはdescribeにフォールバック
+        assert result.success is True
+        assert result.data is not None
+
+    def test_execute_exception_handling(self):
+        """例外発生時のハンドリング"""
+        # 特殊なDataFrameで例外を発生させる
+        df = pd.DataFrame({"a": [1, 2, 3]})
+        executor = QueryExecutor(df)
+
+        # 存在しないカラムでフィルタを試みる（例外発生）
+        query = ParsedQuery(
+            query_type=QueryType.FILTER,
+            filter_conditions=[
+                {"column": "nonexistent", "operator": ">=", "value": 1},
+            ],
+        )
+        result = executor.execute(query)
+
+        assert result.success is False
+        assert result.error is not None
+
+
+class TestSafeExecutorExtended:
+    """SafeExecutorの追加テスト"""
+
+    @pytest.fixture
+    def sample_df(self) -> pd.DataFrame:
+        return pd.DataFrame({
+            "a": list(range(100)),
+            "b": ["cat"] * 50 + ["dog"] * 50,
+        })
+
+    def test_execute_safe_with_large_result(self, sample_df: pd.DataFrame):
+        """大きな結果の制限"""
+        # MAX_RESULT_ROWSより小さいデータでテスト
+        executor = SafeExecutor(sample_df)
+
+        query = ParsedQuery(
+            query_type=QueryType.DESCRIBE,
+            original_question="統計",
+        )
+        result = executor.execute_safe(query)
+
+        assert result.success is True
+        assert result.data is not None
+
+    def test_validate_code_with_to_sql(self, sample_df: pd.DataFrame):
+        """to_sqlブロックの検証"""
+        executor = SafeExecutor(sample_df)
+        assert executor.validate_code("df.to_sql('table', conn)") is False
+
+    def test_validate_code_with_to_pickle(self, sample_df: pd.DataFrame):
+        """to_pickleブロックの検証"""
+        executor = SafeExecutor(sample_df)
+        assert executor.validate_code("df.to_pickle('file.pkl')") is False
+
+    def test_validate_code_with_shell(self, sample_df: pd.DataFrame):
+        """shellブロックの検証"""
+        executor = SafeExecutor(sample_df)
+        assert executor.validate_code("shell('ls')") is False
+
+    def test_validate_code_with_rm(self, sample_df: pd.DataFrame):
+        """rmブロックの検証"""
+        executor = SafeExecutor(sample_df)
+        assert executor.validate_code("rm -rf /") is False
+
+    def test_validate_code_with_del(self, sample_df: pd.DataFrame):
+        """delブロックの検証"""
+        executor = SafeExecutor(sample_df)
+        assert executor.validate_code("del something") is False
+
+    def test_get_error_suggestion_group_column(self, sample_df: pd.DataFrame):
+        """グループ化カラムエラーの提案"""
+        executor = SafeExecutor(sample_df)
+        suggestion = executor.get_error_suggestion("グループ化カラムが見つかりません")
+        # 何らかの提案がある
+        assert len(suggestion) > 0
+
+    def test_get_error_suggestion_date_error(self, sample_df: pd.DataFrame):
+        """日付エラーの提案"""
+        executor = SafeExecutor(sample_df)
+        suggestion = executor.get_error_suggestion("日付データが範囲外です")
+        assert "日付形式" in suggestion
+
+    def test_execution_log_content(self, sample_df: pd.DataFrame):
+        """実行ログの内容確認"""
+        executor = SafeExecutor(sample_df)
+
+        query = ParsedQuery(
+            query_type=QueryType.SUM,
+            original_question="合計を教えて",
+        )
+        result = executor.execute_safe(query)
+
+        log = executor.execution_log[0]
+        assert log["query"] == "合計を教えて"
+        assert log["success"] == result.success
+        assert "execution_time_ms" in log
+        assert "query_code" in log
+
+
+class TestTimeoutHandler:
+    """タイムアウトハンドラーのテスト"""
+
+    def test_timeout_decorator_no_timeout(self):
+        """タイムアウトなしの実行"""
+        from src.executor import timeout_handler
+
+        @timeout_handler(timeout_ms=10000)
+        def fast_function():
+            return "done"
+
+        result = fast_function()
+        assert result == "done"
+
+    def test_timeout_decorator_with_args(self):
+        """引数付き関数のタイムアウトテスト"""
+        from src.executor import timeout_handler
+
+        @timeout_handler(timeout_ms=10000)
+        def add_numbers(a, b):
+            return a + b
+
+        result = add_numbers(1, 2)
+        assert result == 3

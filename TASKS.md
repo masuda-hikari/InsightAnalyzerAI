@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿# InsightAnalyzerAI - タスク管理
+﻿﻿﻿﻿﻿﻿﻿﻿# InsightAnalyzerAI - タスク管理
 ## 待機中タスク
 <!-- 新しいタスクをここに追加 -->
 

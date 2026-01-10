@@ -4,6 +4,7 @@ InsightAnalyzerAI - Streamlit Web UI
 データ分析を自然言語で行えるWebインターフェース
 Phase 4: Web UI実装
 Phase 5: 認証・課金統合
+Phase 6: UI/UX改善・オンボーディング
 """
 
 import streamlit as st
@@ -31,6 +32,217 @@ st.set_page_config(
 )
 
 
+# カスタムCSS
+CUSTOM_CSS = """
+<style>
+    /* メインコンテナ */
+    .main .block-container {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+        max-width: 1200px;
+    }
+
+    /* ヘッダースタイル */
+    .main-header {
+        background: linear-gradient(135deg, #FF6B6B 0%, #FF8E8E 100%);
+        color: white;
+        padding: 1.5rem 2rem;
+        border-radius: 12px;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+    }
+
+    .main-header h1 {
+        margin: 0;
+        font-size: 1.8rem;
+        font-weight: 700;
+    }
+
+    .main-header p {
+        margin: 0.5rem 0 0 0;
+        opacity: 0.9;
+        font-size: 0.95rem;
+    }
+
+    /* カード風コンテナ */
+    .info-card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+        margin-bottom: 1rem;
+        border: 1px solid #f0f0f0;
+    }
+
+    /* クエリ入力エリア */
+    .query-section {
+        background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+        padding: 1.5rem;
+        border-radius: 12px;
+        border: 2px solid #e9ecef;
+        margin-bottom: 1.5rem;
+    }
+
+    /* 例示ボタン */
+    .stButton > button {
+        border-radius: 20px;
+        font-weight: 500;
+        transition: all 0.2s ease;
+    }
+
+    .stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    /* プライマリボタン */
+    .stButton > button[kind="primary"] {
+        background: linear-gradient(135deg, #FF6B6B 0%, #FF8E8E 100%);
+        border: none;
+    }
+
+    /* メトリクスカード */
+    [data-testid="stMetric"] {
+        background: white;
+        padding: 1rem;
+        border-radius: 10px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    }
+
+    [data-testid="stMetricValue"] {
+        color: #FF6B6B;
+        font-weight: 700;
+    }
+
+    /* 結果表示エリア */
+    .result-container {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        border-left: 4px solid #FF6B6B;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+        margin: 1rem 0;
+    }
+
+    /* サイドバー */
+    [data-testid="stSidebar"] {
+        background: #f8f9fa;
+    }
+
+    [data-testid="stSidebar"] .block-container {
+        padding-top: 1rem;
+    }
+
+    /* オンボーディングカード */
+    .onboarding-step {
+        background: white;
+        padding: 1rem 1.5rem;
+        border-radius: 10px;
+        margin-bottom: 0.8rem;
+        border-left: 4px solid #4ECDC4;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+    }
+
+    .onboarding-step.completed {
+        border-left-color: #28a745;
+        background: #f8fff8;
+    }
+
+    /* ウェルカムセクション */
+    .welcome-section {
+        text-align: center;
+        padding: 3rem 2rem;
+        background: linear-gradient(135deg, #fff5f5 0%, #f0ffff 100%);
+        border-radius: 15px;
+        margin-bottom: 2rem;
+    }
+
+    .welcome-section h2 {
+        color: #2c3e50;
+        margin-bottom: 1rem;
+    }
+
+    /* デモカード */
+    .demo-card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border: 2px solid transparent;
+    }
+
+    .demo-card:hover {
+        transform: translateY(-5px);
+        border-color: #FF6B6B;
+        box-shadow: 0 8px 25px rgba(255, 107, 107, 0.2);
+    }
+
+    /* フィーチャーアイコン */
+    .feature-icon {
+        font-size: 2.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    /* 進捗インジケータ */
+    .progress-indicator {
+        display: flex;
+        justify-content: center;
+        gap: 0.5rem;
+        margin: 1.5rem 0;
+    }
+
+    .progress-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #ddd;
+    }
+
+    .progress-dot.active {
+        background: #FF6B6B;
+    }
+
+    /* レスポンシブ調整 */
+    @media (max-width: 768px) {
+        .main .block-container {
+            padding: 1rem;
+        }
+
+        .main-header {
+            padding: 1rem;
+        }
+
+        .main-header h1 {
+            font-size: 1.4rem;
+        }
+
+        .welcome-section {
+            padding: 1.5rem 1rem;
+        }
+    }
+
+    /* アニメーション */
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .animate-fade-in {
+        animation: fadeIn 0.5s ease-out;
+    }
+
+    /* ツールチップ改善 */
+    .tooltip-text {
+        font-size: 0.85rem;
+        color: #6c757d;
+        font-style: italic;
+    }
+</style>
+"""
+
+
 def init_session_state():
     """セッション状態を初期化"""
     if "analyzer" not in st.session_state:
@@ -41,6 +253,14 @@ def init_session_state():
         st.session_state.data_loaded = False
     if "auth_manager" not in st.session_state:
         st.session_state.auth_manager = AuthManager()
+    # オンボーディング状態
+    if "onboarding_completed" not in st.session_state:
+        st.session_state.onboarding_completed = False
+    if "show_tutorial" not in st.session_state:
+        st.session_state.show_tutorial = True
+    # デモモード
+    if "demo_mode" not in st.session_state:
+        st.session_state.demo_mode = False
 
 
 def load_data_from_file(uploaded_file) -> bool:
@@ -311,18 +531,198 @@ def display_history():
             st.divider()
 
 
+def render_welcome_page():
+    """ウェルカムページを表示（データ未読み込み時）"""
+    # カスタムヘッダー
+    st.markdown("""
+    <div class="welcome-section animate-fade-in">
+        <h2>📊 InsightAnalyzerAI へようこそ</h2>
+        <p style="font-size: 1.1rem; color: #6c757d;">
+            CSVをアップロードして、自然言語で質問するだけ。<br>
+            AIがプロ級のデータ分析を実行します。
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # クイックスタートガイド
+    st.markdown("### 🚀 3ステップで始める")
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.markdown("""
+        <div class="info-card" style="text-align: center;">
+            <div class="feature-icon">📂</div>
+            <h4>1. データをアップロード</h4>
+            <p style="color: #6c757d; font-size: 0.9rem;">
+                CSV, Excel, Parquetに対応<br>
+                左のサイドバーから
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col2:
+        st.markdown("""
+        <div class="info-card" style="text-align: center;">
+            <div class="feature-icon">💬</div>
+            <h4>2. 質問を入力</h4>
+            <p style="color: #6c757d; font-size: 0.9rem;">
+                日本語で自然に<br>
+                「売上の合計は？」
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col3:
+        st.markdown("""
+        <div class="info-card" style="text-align: center;">
+            <div class="feature-icon">📈</div>
+            <h4>3. 結果を確認</h4>
+            <p style="color: #6c757d; font-size: 0.9rem;">
+                AIが分析を実行<br>
+                チャートも自動生成
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("---")
+
+    # デモを試すセクション
+    st.markdown("### 🎯 今すぐ試す")
+    st.info("👉 サンプルデータを使ってすぐに体験できます")
+
+    col_demo1, col_demo2 = st.columns(2)
+
+    with col_demo1:
+        if st.button("📊 サンプルデータで始める", type="primary", use_container_width=True):
+            load_sample_data()
+            st.rerun()
+
+    with col_demo2:
+        st.markdown("""
+        <p style="padding: 0.5rem; color: #6c757d; font-size: 0.9rem;">
+            売上データ（25件）を使って<br>
+            分析機能をお試しください
+        </p>
+        """, unsafe_allow_html=True)
+
+    # 質問例
+    st.markdown("### 💡 こんな質問ができます")
+
+    example_questions = [
+        {"icon": "🔢", "q": "売上の合計はいくら？", "desc": "数値の集計"},
+        {"icon": "📊", "q": "カテゴリ別の売上を教えて", "desc": "グループ集計"},
+        {"icon": "📈", "q": "月別の売上推移は？", "desc": "時系列分析"},
+        {"icon": "🏆", "q": "最も売れている商品は？", "desc": "ランキング"},
+        {"icon": "📋", "q": "データの概要を教えて", "desc": "統計サマリー"},
+        {"icon": "🔍", "q": "東京の売上を見せて", "desc": "フィルタリング"},
+    ]
+
+    cols = st.columns(3)
+    for i, example in enumerate(example_questions):
+        with cols[i % 3]:
+            st.markdown(f"""
+            <div class="info-card" style="padding: 1rem;">
+                <span style="font-size: 1.5rem;">{example['icon']}</span>
+                <p style="margin: 0.5rem 0 0.3rem 0; font-weight: 500;">"{example['q']}"</p>
+                <span class="tooltip-text">{example['desc']}</span>
+            </div>
+            """, unsafe_allow_html=True)
+
+
+def load_sample_data():
+    """サンプルデータを読み込む"""
+    sample_path = Path(__file__).parent.parent / "data" / "sample_sales.csv"
+    if sample_path.exists():
+        # LLM使用可否をプランから判定
+        auth_manager = st.session_state.auth_manager
+        use_llm = auth_manager.can_use_llm()
+
+        st.session_state.analyzer = InsightAnalyzer(str(sample_path), use_llm=use_llm)
+        st.session_state.data_loaded = True
+        st.session_state.file_name = "sample_sales.csv"
+        st.session_state.demo_mode = True
+        return True
+    return False
+
+
+def render_demo_analyses():
+    """デモ分析ボタンを表示"""
+    st.markdown("### 🎮 ワンクリック分析")
+    st.caption("ボタンを押すだけで分析を実行")
+
+    demo_queries = [
+        {"label": "📊 データ概要", "query": "データの概要を教えて"},
+        {"label": "💰 売上合計", "query": "売上の合計を教えて"},
+        {"label": "🏢 地域別売上", "query": "地域別の売上合計を教えて"},
+        {"label": "📦 商品別売上", "query": "商品別の売上を教えて"},
+        {"label": "🏆 売上トップ5", "query": "売上上位5件を表示して"},
+        {"label": "👤 担当者別", "query": "担当者別の売上を教えて"},
+    ]
+
+    cols = st.columns(3)
+    for i, demo in enumerate(demo_queries):
+        with cols[i % 3]:
+            if st.button(demo["label"], key=f"demo_{i}", use_container_width=True):
+                return demo["query"]
+
+    return None
+
+
+def render_onboarding_sidebar():
+    """サイドバーにオンボーディング進捗を表示"""
+    with st.sidebar:
+        if not st.session_state.onboarding_completed:
+            st.markdown("### 📝 はじめてのガイド")
+
+            steps = [
+                {"name": "データを読み込む", "done": st.session_state.data_loaded},
+                {"name": "質問を入力する", "done": len(st.session_state.history) > 0},
+                {"name": "チャートを生成", "done": any(
+                    h.get("chart_generated", False) for h in st.session_state.history
+                ) if st.session_state.history else False},
+            ]
+
+            completed_count = sum(1 for s in steps if s["done"])
+
+            # 進捗バー
+            st.progress(completed_count / len(steps))
+            st.caption(f"{completed_count}/{len(steps)} 完了")
+
+            for step in steps:
+                icon = "✅" if step["done"] else "⬜"
+                st.markdown(f"{icon} {step['name']}")
+
+            if completed_count == len(steps):
+                st.success("🎉 すべて完了！")
+                st.session_state.onboarding_completed = True
+                st.balloons()
+
+            st.divider()
+
+
 def main():
     """メインアプリケーション"""
     init_session_state()
 
-    # ヘッダー
-    st.title("📊 InsightAnalyzerAI")
-    st.markdown("*自然言語でデータを分析するAIアシスタント*")
+    # カスタムCSSを適用
+    st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
+
+    # カスタムヘッダー
+    st.markdown("""
+    <div class="main-header">
+        <h1>📊 InsightAnalyzerAI</h1>
+        <p>自然言語でデータを分析するAIアシスタント</p>
+    </div>
+    """, unsafe_allow_html=True)
 
     # 認証UI（サイドバー内）
     render_auth_ui()
 
-    # サイドバー
+    # オンボーディング進捗（サイドバー）
+    render_onboarding_sidebar()
+
+    # サイドバー設定
     with st.sidebar:
         st.header("⚙️ 設定")
 
@@ -340,16 +740,14 @@ def main():
                 with st.spinner("データを読み込み中..."):
                     if load_data_from_file(uploaded_file):
                         st.success(f"✅ {uploaded_file.name} を読み込みました")
+                        st.session_state.demo_mode = False
 
         # サンプルデータ使用オプション
         st.divider()
-        if st.button("📊 サンプルデータを使用"):
-            sample_path = Path(__file__).parent.parent / "data" / "sample_sales.csv"
-            if sample_path.exists():
-                st.session_state.analyzer = InsightAnalyzer(str(sample_path), use_llm=True)
-                st.session_state.data_loaded = True
-                st.session_state.file_name = "sample_sales.csv"
+        if st.button("📊 サンプルデータを使用", use_container_width=True):
+            if load_sample_data():
                 st.success("✅ サンプルデータを読み込みました")
+                st.rerun()
             else:
                 st.warning("サンプルデータファイルが見つかりません")
 
@@ -357,34 +755,33 @@ def main():
 
         # オプション
         st.subheader("🎛️ オプション")
-        generate_chart = st.checkbox("チャートを生成", value=False)
+        generate_chart = st.checkbox("チャートを生成", value=True)
         explain_result = st.checkbox("AIで結果を説明", value=True)
 
         # 履歴クリア
         st.divider()
-        if st.button("🗑️ 履歴をクリア"):
+        if st.button("🗑️ 履歴をクリア", use_container_width=True):
             st.session_state.history = []
             st.rerun()
 
+        # データをリセット
+        if st.session_state.data_loaded:
+            if st.button("🔄 データをリセット", use_container_width=True):
+                st.session_state.analyzer = None
+                st.session_state.data_loaded = False
+                st.session_state.demo_mode = False
+                st.session_state.history = []
+                st.rerun()
+
     # メインコンテンツ
     if not st.session_state.data_loaded:
-        # ウェルカムメッセージ
-        st.info("👈 左のサイドバーからデータファイルをアップロードしてください")
-
-        st.markdown("""
-        ### 🚀 使い方
-        1. **データをアップロード**: CSV, Excel, Parquet ファイルに対応
-        2. **質問を入力**: 自然言語で分析したい内容を入力
-        3. **結果を確認**: AIが自動的にデータを分析し、回答を生成
-
-        ### 💡 質問例
-        - 「売上の合計はいくら？」
-        - 「カテゴリ別の売上を教えて」
-        - 「データの概要を教えて」
-        - 「最も売れている商品は？」
-        """)
-
+        # ウェルカムページを表示
+        render_welcome_page()
         return
+
+    # デモモード表示
+    if st.session_state.demo_mode:
+        st.info("🎮 **デモモード**: サンプルの売上データを使用しています。自分のデータをアップロードして試すこともできます。")
 
     # データ情報
     display_data_info()
@@ -393,19 +790,26 @@ def main():
     tab1, tab2, tab3, tab4 = st.tabs(["🔍 クエリ", "📊 データ情報", "📜 履歴", "💰 プラン"])
 
     with tab1:
-        # クエリ入力
+        # デモモードならワンクリック分析を表示
+        demo_query = None
+        if st.session_state.demo_mode:
+            demo_query = render_demo_analyses()
+            st.divider()
+
+        # クエリ入力セクション
+        st.markdown('<div class="query-section">', unsafe_allow_html=True)
         st.subheader("💬 質問を入力")
 
         # 質問例ボタン
         example_queries = [
             "データの概要を教えて",
             "売上の合計は？",
-            "カテゴリ別の売上",
+            "地域別の売上",
             "上位5件を表示",
         ]
 
         cols = st.columns(len(example_queries))
-        selected_example = None
+        selected_example = demo_query  # デモクエリがあれば使用
         for i, (col, query) in enumerate(zip(cols, example_queries)):
             if col.button(query, key=f"example_{i}", use_container_width=True):
                 selected_example = query
@@ -417,9 +821,20 @@ def main():
             placeholder="例: 売上の合計を教えて",
             label_visibility="collapsed",
         )
+        st.markdown('</div>', unsafe_allow_html=True)
 
         # 実行ボタン
-        if st.button("🔍 分析実行", type="primary", disabled=not question):
+        col_btn1, col_btn2 = st.columns([3, 1])
+        with col_btn1:
+            execute_button = st.button(
+                "🔍 分析実行",
+                type="primary",
+                disabled=not question,
+                use_container_width=True
+            )
+
+        # 分析実行
+        if execute_button or (selected_example and question):
             with st.spinner("分析中..."):
                 result = process_query(
                     question,
@@ -427,12 +842,18 @@ def main():
                     explain_result,
                 )
                 if result:
-                    display_result(result, show_chart=generate_chart)
+                    # チャート生成フラグを記録
+                    if st.session_state.history:
+                        st.session_state.history[-1]["chart_generated"] = generate_chart
 
-        # 最新の結果を表示
-        if st.session_state.history and not question:
+                    st.markdown('<div class="result-container animate-fade-in">', unsafe_allow_html=True)
+                    display_result(result, show_chart=generate_chart)
+                    st.markdown('</div>', unsafe_allow_html=True)
+
+        # 最新の結果を表示（質問がない場合）
+        elif st.session_state.history and not question:
             st.divider()
-            st.subheader("最新の分析結果")
+            st.subheader("📋 最新の分析結果")
             display_result(st.session_state.history[-1]["result"], show_chart=generate_chart)
 
     with tab2:
@@ -441,7 +862,10 @@ def main():
         display_data_preview()
 
     with tab3:
-        display_history()
+        if st.session_state.history:
+            display_history()
+        else:
+            st.info("まだクエリ履歴がありません。質問を入力して分析を実行してください。")
 
     with tab4:
         render_pricing_ui()

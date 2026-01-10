@@ -1,10 +1,10 @@
-﻿# InsightAnalyzerAI - ステータス
+# InsightAnalyzerAI - ステータス
 
 最終更新: 2026-01-10
 
 ## 現在の状況
 - 状況: Phase 6（デプロイ）進行中
-- 進捗: ドキュメント整備完了・パフォーマンス最適化完了
+- 進捗: Lighthouse監査対応・PWA対応・法的ページ完了
 
 ## 完了した項目
 - Phase 1 (MVP): 完了
@@ -41,12 +41,24 @@
   - ユーザーガイド（docs/guide/index.html）
   - 圧縮CSS（docs/assets/styles.min.css）
   - ナビゲーション改善
+- Lighthouse監査対応: 完了 (2026-01-10)
+  - スキップリンク追加
+  - ARIA属性追加（role, aria-label, aria-labelledby）
+  - フォーカス状態の可視化
+  - セマンティックHTML（main, article, section）
+  - 減弱動作モード対応（prefers-reduced-motion）
+  - モバイルメニューのアクセシビリティ改善
+- PWA対応: 完了 (2026-01-10)
+  - manifest.json作成
+  - Service Worker実装（sw.js）
+  - オフラインキャッシュ対応
+  - アプリアイコン（SVG）
+- 法的ページ: 完了 (2026-01-10)
+  - プライバシーポリシー（docs/legal/privacy.html）
+  - 利用規約（docs/legal/terms.html）
+  - 特定商取引法に基づく表記（docs/legal/tokushoho.html）
 
 ## 次のアクション
-**AIが実行可能**:
-1. Lighthouse監査対応（アクセシビリティ改善）
-2. PWA対応（オフライン機能）
-
 **人間作業必要**:
 1. GitHub Pages有効化
 2. Formspree設定
@@ -66,26 +78,23 @@
 - Web UI: 完了（UI/UX強化済み）
 - 認証システム: 完了
 - 課金システム: 完了（Stripe連携準備済み）
-- ランディングページ: 完了（早期アクセスフォーム付き）
+- ランディングページ: 完了（アクセシビリティ強化済み）
 - ドキュメント: 完了（API仕様書・ユーザーガイド）
+- PWA: 完了
+- 法的ページ: 完了
 - GitHub Pages: 準備完了
 
 ## 最近の変更
+- 2026-01-10: Lighthouse監査対応・PWA対応・法的ページ追加
+  - アクセシビリティ改善（スキップリンク、ARIA、フォーカス可視化）
+  - PWA対応（manifest.json、Service Worker）
+  - 法的ページ作成（プライバシーポリシー、利用規約、特商法表記）
+  - ランディングページ強化（モバイルメニュー改善）
 - 2026-01-10: ドキュメント整備・パフォーマンス最適化
-  - API仕様書作成（Python SDK解説）
-  - ユーザーガイド作成（ステップバイステップ）
-  - CSS圧縮版作成
-  - ランディングページにナビゲーション追加
 - 2026-01-10: テストカバレッジ向上・エラーハンドリング強化
-  - Streamlitテスト49件追加（合計158テストパス）
-  - data_loader.py: 複数エンコーディング対応、詳細エラーメッセージ
-  - executor.py: SafeExecutor強化（入力検証、結果制限、エラー提案）
 - 2026-01-10: UI/UX改善・オンボーディング機能追加
 - 2026-01-10: ランディングページ強化
 - 2026-01-09: Phase 5 認証・課金システム実装完了
-- 2026-01-09: デプロイ準備完了
-- 2026-01-09: Phase 4 Web UI実装完了
-- 2026-01-08: Phase 2 LLM統合実装完了
 
 ## テスト状態
 - 全テストパス: 158 passed, 17 skipped

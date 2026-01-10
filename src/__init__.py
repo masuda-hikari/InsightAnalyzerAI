@@ -8,9 +8,10 @@ InsightAnalyzerAI - AI駆動のデータ分析アシスタント
     QueryExecutor: クエリ実行
     Visualizer: 可視化
     LLMHandler: LLM統合（Phase 2）
+    InsightEngine: 自動インサイト発見（Phase 5）
 """
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"  # Phase 5: 自動インサイト機能追加
 __author__ = "InsightAnalyzerAI Team"
 
 from .insight_analyzer import InsightAnalyzer, AnalysisResult
@@ -19,6 +20,14 @@ from .query_parser import QueryParser, ParsedQuery, QueryType
 from .executor import QueryExecutor, SafeExecutor, ExecutionResult
 from .visualizer import Visualizer, ChartConfig, ChartType, ChartResult
 from .llm_handler import LLMHandler, LLMConfig, LLMResponse, LLMQueryParser
+from .insight_engine import (
+    InsightEngine,
+    InsightReport,
+    Insight,
+    InsightType,
+    InsightSeverity,
+    generate_insights,
+)
 
 __all__ = [
     # メイン
@@ -44,4 +53,11 @@ __all__ = [
     "LLMConfig",
     "LLMResponse",
     "LLMQueryParser",
+    # 自動インサイト（Phase 5）
+    "InsightEngine",
+    "InsightReport",
+    "Insight",
+    "InsightType",
+    "InsightSeverity",
+    "generate_insights",
 ]

@@ -16,6 +16,7 @@ from .query_parser import QueryParser, ParsedQuery, QueryType
 from .executor import QueryExecutor, SafeExecutor, ExecutionResult
 from .visualizer import Visualizer, ChartConfig, ChartResult
 from .llm_handler import LLMHandler, LLMConfig, create_llm_handler
+from .insight_engine import InsightEngine, InsightReport, Insight, InsightType
 
 
 @dataclass
@@ -440,9 +441,9 @@ class InsightAnalyzer:
 
     def get_insights(self) -> list[str]:
         """
-        自動インサイト生成（Phase 5で拡張予定）
+        自動インサイト生成（基本版）
 
-        現在は基本的な統計情報のみ
+        シンプルなテキストリストを返す
         """
         if self._df is None:
             return ["データが読み込まれていません"]
@@ -461,6 +462,96 @@ class InsightAnalyzer:
             insights.append(f"{col}: 合計 {total:,.0f}, 平均 {mean:,.0f}")
 
         return insights
+
+    def get_insight_report(self, max_insights: int = 20) -> InsightReport:
+        """
+        高度な自動インサイトレポートを生成（Phase 5: プレミアム機能）
+
+        データを多角的に分析し、パターン・異常値・トレンドを自動検出する
+
+        Args:
+            max_insights: 最大インサイト数（デフォルト: 20）
+
+        Returns:
+            InsightReport: 構造化されたインサイトレポート
+
+        収益貢献:
+            - Basic/Proプランの差別化機能
+            - データアナリスト不要で高度な分析を提供
+            - 月額課金の価値を正当化
+        """
+        if self._df is None:
+            return InsightReport(
+                insights=[],
+                generated_at="",
+                data_rows=0,
+                data_columns=0,
+                analysis_time_ms=0,
+            )
+
+        engine = InsightEngine(self._df)
+        return engine.generate_report(max_insights=max_insights)
+
+    def get_formatted_insights(self, max_insights: int = 10) -> str:
+        """
+        フォーマット済みインサイトテキストを取得
+
+        CLIやWeb UIで表示しやすい形式
+
+        Args:
+            max_insights: 最大インサイト数
+
+        Returns:
+            フォーマット済みテキスト
+        """
+        if self._df is None:
+            return "データが読み込まれていません"
+
+        report = self.get_insight_report(max_insights=max_insights)
+
+        lines = [
+            "=" * 50,
+            f"📊 自動インサイトレポート",
+            f"データ: {report.data_rows:,}行 × {report.data_columns}列",
+            f"分析時間: {report.analysis_time_ms:.1f}ms",
+            f"{report.summary}",
+            "=" * 50,
+            "",
+        ]
+
+        # 重要度別にグループ化
+        from .insight_engine import InsightSeverity
+
+        critical_insights = [i for i in report.insights if i.severity == InsightSeverity.CRITICAL]
+        warning_insights = [i for i in report.insights if i.severity == InsightSeverity.WARNING]
+        info_insights = [i for i in report.insights if i.severity == InsightSeverity.INFO]
+
+        if critical_insights:
+            lines.append("🔴 重要（要対応）:")
+            for insight in critical_insights:
+                lines.append(f"  • {insight.title}")
+                lines.append(f"    {insight.description}")
+                if insight.recommendation:
+                    lines.append(f"    💡 {insight.recommendation}")
+            lines.append("")
+
+        if warning_insights:
+            lines.append("🟡 注意:")
+            for insight in warning_insights:
+                lines.append(f"  • {insight.title}")
+                lines.append(f"    {insight.description}")
+                if insight.recommendation:
+                    lines.append(f"    💡 {insight.recommendation}")
+            lines.append("")
+
+        if info_insights:
+            lines.append("🔵 情報:")
+            for insight in info_insights[:5]:  # 情報は最大5件
+                lines.append(f"  • {insight.title}")
+                lines.append(f"    {insight.description}")
+            lines.append("")
+
+        return "\n".join(lines)
 
 
 def main():

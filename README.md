@@ -1,4 +1,4 @@
-﻿# InsightAnalyzerAI
+# InsightAnalyzerAI
 
 AI駆動のデータ分析アシスタント
 - 自然言語でデータに質問し、即座にインサイトを得る
@@ -10,8 +10,14 @@ InsightAnalyzerAIは、データセットをアップロードして自然言語
 
 - **自然言語クエリ**: 「先月の地域別売上合計は？」のような質問に回答
 - **自動分析**: データのパターンや異常値を自動検出
-- **可視化**: 適切なチャートを自動生成
+- **可視化**: 適切なチャートを自動生成（Plotlyインタラクティブ対応）
 - **レポート生成**: 分析結果をわかりやすいレポートに
+- **認証・課金**: ユーザー管理とStripe統合
+
+## デモ
+
+- **Web UI**: [https://insightanalyzerai.streamlit.app](https://insightanalyzerai.streamlit.app)
+- **ランディングページ**: [https://your-username.github.io/InsightAnalyzerAI/](https://your-username.github.io/InsightAnalyzerAI/)
 
 ## 使用例
 ```python
@@ -52,6 +58,13 @@ pip install -r requirements.txt
 ```
 
 ## クイックスタート
+
+### Web UI（推奨）
+```bash
+streamlit run src/streamlit_app.py
+```
+
+### CLI モード
 ```bash
 # CLIモード
 python -m src.insight_analyzer data/sample_sales.csv
@@ -83,7 +96,7 @@ OPENAI_API_KEY=sk-... python -m src.insight_analyzer data/sample_sales.csv --exp
 
 ## 現在のステータス
 
-**開発中 - Phase 2 (LLM統合)**
+**Phase 6 - デプロイ準備完了**
 
 ### Phase 1 (MVP) ✅完了
 - [x] プロジェクト構造
@@ -94,17 +107,49 @@ OPENAI_API_KEY=sk-... python -m src.insight_analyzer data/sample_sales.csv --exp
 - [x] 実行時間計測・信頼度スコア
 - [x] 基本チャート生成（matplotlib）
 
-### Phase 2 (LLM統合) 🚧進行中
+### Phase 2 (LLM統合) ✅完了
 - [x] OpenAI API統合（LLMHandler）
 - [x] 自然言語→Pandasコード変換
 - [x] 結果の自然言語説明生成
 - [x] フォールバック機構（LLM失敗時）
-- [ ] プロンプト最適化
 
-### Phase 3以降
-- [ ] Web UI（Streamlit）
-- [ ] 自動インサイト
-- [ ] SaaS化
+### Phase 3 (可視化強化) ✅完了
+- [x] Matplotlibによるチャート生成
+- [x] チャートタイプ自動選択
+
+### Phase 4 (Web UI) ✅完了
+- [x] Streamlit Web UI
+- [x] ファイルアップロード（CSV/Excel/Parquet）
+- [x] Plotlyインタラクティブチャート
+- [x] クエリ履歴機能
+
+### Phase 5 (認証・課金) ✅完了
+- [x] 認証システム（ユーザー登録/ログイン）
+- [x] プラン管理（Free/Basic/Pro/Enterprise）
+- [x] 使用量制限（ファイルサイズ、クエリ数）
+- [x] Stripe課金統合
+
+### Phase 6 (デプロイ) 🚧進行中
+- [x] ランディングページ作成
+- [x] GitHub Pages設定
+- [ ] Streamlit Cloudデプロイ
+- [ ] Stripeアカウント設定
+- [ ] ベータテスター募集
+
+## デプロイ手順
+
+### GitHub Pages（ランディングページ）
+1. リポジトリ設定 → Pages → Source: "main" → Folder: "/docs"
+2. 保存後、数分で公開される
+
+### Streamlit Cloud（アプリ本体）
+1. [share.streamlit.io](https://share.streamlit.io) でアカウント作成
+2. GitHubリポジトリを連携
+3. Main file: `src/streamlit_app.py`
+4. Secrets設定:
+   - `OPENAI_API_KEY`
+   - `STRIPE_SECRET_KEY`
+   - `STRIPE_WEBHOOK_SECRET`
 
 ## ライセンス
 

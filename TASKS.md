@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿# InsightAnalyzerAI - タスク管理
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿# InsightAnalyzerAI - タスク管理
 ## 待機中タスク
 - [ ] テストカバレッジ向上（Streamlitテスト）
 - [ ] パフォーマンス最適化

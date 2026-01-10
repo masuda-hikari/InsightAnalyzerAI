@@ -1,4 +1,4 @@
-# InsightAnalyzerAI - タスク管理
+﻿# InsightAnalyzerAI - タスク管理
 ## 待機中タスク
 - [ ] Lighthouse監査対応（アクセシビリティ改善）
 - [ ] PWA対応（オフライン機能）

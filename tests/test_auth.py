@@ -22,6 +22,25 @@ from src.auth import (
 )
 
 
+class MockSessionStateDict(dict):
+    """dictとドット記法の両方をサポートするセッション状態モック"""
+
+    def __getattr__(self, key):
+        try:
+            return self[key]
+        except KeyError:
+            return None
+
+    def __setattr__(self, key, value):
+        self[key] = value
+
+    def __delattr__(self, key):
+        try:
+            del self[key]
+        except KeyError:
+            pass
+
+
 class TestPlanLimits:
     """プラン制限のテスト"""
 
@@ -82,7 +101,7 @@ class TestAuthManager:
     def mock_session_state(self):
         """セッション状態のモック"""
         import streamlit as st
-        st.session_state = {}
+        st.session_state = MockSessionStateDict()
         return st.session_state
 
     def test_password_hash(self, mock_session_state):
@@ -301,7 +320,7 @@ class TestUsageTracker:
     def mock_session_state(self):
         """セッション状態のモック"""
         import streamlit as st
-        st.session_state = {}
+        st.session_state = MockSessionStateDict()
         return st.session_state
 
     def test_increment_query_count(self, mock_session_state):
@@ -368,7 +387,7 @@ class TestAuthManagerExtended:
     def mock_session_state(self):
         """セッション状態のモック"""
         import streamlit as st
-        st.session_state = {}
+        st.session_state = MockSessionStateDict()
         return st.session_state
 
     def test_verify_password_invalid_format(self, mock_session_state):
@@ -527,17 +546,18 @@ class TestDecorators:
     """デコレータのテスト
 
     注意: デコレータは内部で新しいAuthManagerインスタンスを作成するため、
-    セッション状態の共有が複雑。ここではロジックテストを行う。
+    共有可能なセッション状態モックを使用する。
     """
 
-    @pytest.fixture
-    def mock_session_state(self):
-        """セッション状態のモック"""
+    @pytest.fixture(autouse=True)
+    def shared_session_state(self):
+        """共有可能なセッション状態を設定"""
         import streamlit as st
-        st.session_state = {}
-        return st.session_state
+        st.session_state = MockSessionStateDict()
+        yield st.session_state
+        st.session_state = MockSessionStateDict()
 
-    def test_require_auth_decorator_unauthenticated(self, mock_session_state):
+    def test_require_auth_decorator_unauthenticated(self):
         """認証なしでrequire_authデコレータ"""
         from src.auth import require_auth
 
@@ -548,7 +568,7 @@ class TestDecorators:
         result = protected_function()
         assert result is None  # 未認証なのでNone
 
-    def test_require_plan_decorator_unauthenticated(self, mock_session_state):
+    def test_require_plan_decorator_unauthenticated(self):
         """未認証でrequire_planデコレータ"""
         from src.auth import require_plan
 
@@ -559,13 +579,13 @@ class TestDecorators:
         result = premium_function()
         assert result is None  # 未認証はFree扱いなのでアクセス不可
 
-    def test_require_plan_decorator_free_user(self, mock_session_state):
+    def test_require_plan_decorator_free_user(self):
         """Freeユーザーでrequire_planデコレータ（Basic要求）"""
         from src.auth import require_plan
 
         manager = AuthManager()
-        manager.register("free@example.com", "password123")
-        manager.login("free@example.com", "password123")
+        manager.register("free_dec@example.com", "password123")
+        manager.login("free_dec@example.com", "password123")
 
         @require_plan(PlanType.BASIC)
         def premium_function():
@@ -574,14 +594,14 @@ class TestDecorators:
         result = premium_function()
         assert result is None  # Freeプランなのでアクセス不可
 
-    @pytest.mark.skip(reason="デコレータは新しいAuthManagerを作成するためセッション状態が共有されない")
-    def test_require_auth_decorator_authenticated(self, mock_session_state):
+    @pytest.mark.skip(reason="デコレータは新しいAuthManagerインスタンスを作成するためセッション状態が共有されない")
+    def test_require_auth_decorator_authenticated(self):
         """認証ありでrequire_authデコレータ"""
         from src.auth import require_auth
 
         manager = AuthManager()
-        manager.register("auth@example.com", "password123")
-        manager.login("auth@example.com", "password123")
+        manager.register("auth_dec@example.com", "password123")
+        manager.login("auth_dec@example.com", "password123")
 
         @require_auth
         def protected_function():
@@ -590,15 +610,15 @@ class TestDecorators:
         result = protected_function()
         assert result == "success"
 
-    @pytest.mark.skip(reason="デコレータは新しいAuthManagerを作成するためセッション状態が共有されない")
-    def test_require_plan_decorator_basic_user(self, mock_session_state):
+    @pytest.mark.skip(reason="デコレータは新しいAuthManagerインスタンスを作成するためセッション状態が共有されない")
+    def test_require_plan_decorator_basic_user(self):
         """Basicユーザーでrequire_planデコレータ（Basic要求）"""
         from src.auth import require_plan
 
         manager = AuthManager()
-        manager.register("basic@example.com", "password123")
-        manager.login("basic@example.com", "password123")
-        manager.update_plan("basic@example.com", PlanType.BASIC)
+        manager.register("basic_dec@example.com", "password123")
+        manager.login("basic_dec@example.com", "password123")
+        manager.update_plan("basic_dec@example.com", PlanType.BASIC)
 
         @require_plan(PlanType.BASIC)
         def premium_function():
@@ -607,15 +627,15 @@ class TestDecorators:
         result = premium_function()
         assert result == "success"
 
-    @pytest.mark.skip(reason="デコレータは新しいAuthManagerを作成するためセッション状態が共有されない")
-    def test_require_plan_decorator_pro_user_for_basic(self, mock_session_state):
+    @pytest.mark.skip(reason="デコレータは新しいAuthManagerインスタンスを作成するためセッション状態が共有されない")
+    def test_require_plan_decorator_pro_user_for_basic(self):
         """ProユーザーでBasic要求のデコレータ"""
         from src.auth import require_plan
 
         manager = AuthManager()
-        manager.register("pro@example.com", "password123")
-        manager.login("pro@example.com", "password123")
-        manager.update_plan("pro@example.com", PlanType.PRO)
+        manager.register("pro_dec@example.com", "password123")
+        manager.login("pro_dec@example.com", "password123")
+        manager.update_plan("pro_dec@example.com", PlanType.PRO)
 
         @require_plan(PlanType.BASIC)
         def basic_function():
@@ -668,7 +688,7 @@ class TestAuthManagerLoginEdgeCases:
     def mock_session_state(self):
         """セッション状態のモック"""
         import streamlit as st
-        st.session_state = {}
+        st.session_state = MockSessionStateDict()
         return st.session_state
 
     def test_login_case_insensitive_email(self, mock_session_state):
@@ -698,7 +718,7 @@ class TestAuthManagerPlanLimitsEdgeCases:
     def mock_session_state(self):
         """セッション状態のモック"""
         import streamlit as st
-        st.session_state = {}
+        st.session_state = MockSessionStateDict()
         return st.session_state
 
     def test_get_plan_limits_for_basic_plan(self, mock_session_state):
@@ -779,7 +799,7 @@ class TestPasswordHashingSecurity:
     def mock_session_state(self):
         """セッション状態のモック"""
         import streamlit as st
-        st.session_state = {}
+        st.session_state = MockSessionStateDict()
         return st.session_state
 
     def test_password_hash_produces_salt_and_hash(self, mock_session_state):
@@ -962,7 +982,7 @@ class TestAuthManagerUpdatePlanForLoggedInUser:
     def mock_session_state(self):
         """セッション状態のモック"""
         import streamlit as st
-        st.session_state = {}
+        st.session_state = MockSessionStateDict()
         return st.session_state
 
     def test_update_plan_updates_current_user_session(self, mock_session_state):
@@ -997,7 +1017,7 @@ class TestAuthManagerEmailCaseSensitivity:
     def mock_session_state(self):
         """セッション状態のモック"""
         import streamlit as st
-        st.session_state = {}
+        st.session_state = MockSessionStateDict()
         return st.session_state
 
     def test_register_with_uppercase_login_with_lowercase(self, mock_session_state):

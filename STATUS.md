@@ -4,7 +4,7 @@
 
 ## 現在の状況
 - 状況: Phase 6（デプロイ）進行中
-- 進捗: テストカバレッジ向上（auth/billing強化）
+- 進捗: テストカバレッジ向上（test_auth.pyモック改善）
 
 ## 完了した項目
 - Phase 1 (MVP): 完了
@@ -40,14 +40,17 @@
   - オンボーディング進捗表示
   - モバイル対応（レスポンシブCSS）
 - テスト・品質強化: 継続中
-  - 2026-01-11(6): auth/billing テストカバレッジ向上 ★NEW
+  - 2026-01-11(7): test_auth.pyモック改善 ★NEW
+    - MockSessionStateDictクラス追加（dict+ドット記法両対応）
+    - デコレータテスト追加（require_auth, require_plan）
+    - 全テストがMockSessionStateDictを使用
+    - テストパス: 442件（変更なし）、スキップ: 30件
+  - 2026-01-11(6): auth/billing テストカバレッジ向上
     - auth.py: 76%→78%（+2%）
     - billing.py: 58%→61%（+3%）
     - テスト追加: 18件（424→442件）
-    - 日付リセット処理、クエリ上限処理のテスト追加
   - 2026-01-11(5): data_loader.pyテストカバレッジ向上
-    - data_loader.py: 77%→90%（+13%）★大幅改善
-    - テスト追加: 28件
+    - data_loader.py: 77%→90%（+13%）
   - 2026-01-11(4): テストカバレッジ大幅向上
     - insight_analyzer.py: 65%→88%（+23%）
     - visualizer.py: 95%→97%（+2%）
@@ -82,7 +85,10 @@
 - GitHub Pages: 準備完了
 
 ## 最近の変更
-- 2026-01-11(6): auth/billing テストカバレッジ向上 ★NEW
+- 2026-01-11(7): test_auth.pyモック改善 ★NEW
+  - MockSessionStateDictクラス追加
+  - デコレータテスト追加
+- 2026-01-11(6): auth/billing テストカバレッジ向上
   - auth.py: 76%→78%
   - billing.py: 58%→61%
   - テスト追加: 18件
@@ -107,7 +113,7 @@
   - executor.py: 90%
   - insight_analyzer.py: 88%
   - llm_handler.py: 86%
-  - auth.py: 78% ★改善
-  - billing.py: 61% ★改善
+  - auth.py: 78%
+  - billing.py: 61%
 - Streamlit UI除外時の実効カバレッジ: 約89%
 - セキュリティスキャン: PASS

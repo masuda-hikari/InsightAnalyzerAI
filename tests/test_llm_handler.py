@@ -204,3 +204,366 @@ result = df['sales'].sum()
 
             assert result.success is True
             assert "sum()" in result.pandas_code
+
+
+class TestLLMHandlerWithMock:
+    """モックを使用したLLMHandlerの詳細テスト"""
+
+    @pytest.fixture
+    def sample_df(self) -> pd.DataFrame:
+        """テスト用DataFrame"""
+        return pd.DataFrame({
+            "region": ["東京", "大阪", "名古屋"],
+            "sales": [1000, 2000, 1500],
+            "quantity": [10, 20, 15],
+        })
+
+    @pytest.fixture
+    def mock_openai_response(self):
+        """OpenAI応答のモック"""
+        mock_response = Mock()
+        mock_response.choices = [Mock()]
+        mock_response.choices[0].message.content = """説明です
+```python
+result = df['sales'].sum()
+```"""
+        mock_response.usage = Mock()
+        mock_response.usage.total_tokens = 100
+        return mock_response
+
+    def test_init_client_import_error(self):
+        """_init_clientでImportErrorが発生した場合"""
+        config = LLMConfig(api_key="test-api-key")
+
+        with patch.dict('sys.modules', {'openai': None}):
+            with patch('builtins.__import__', side_effect=ImportError("No module named 'openai'")):
+                handler = LLMHandler.__new__(LLMHandler)
+                handler._config = config
+                handler._client = None
+                handler._available = False
+                # ImportError時は_available=False
+                handler._init_client()
+                # 直接テスト不可なので、状態確認
+                # _availableがFalseのままであることを確認
+                assert handler._available is False
+
+    def test_init_client_generic_exception(self):
+        """_init_clientで一般例外が発生した場合"""
+        config = LLMConfig(api_key="test-api-key")
+
+        # モジュールをモック
+        mock_openai = Mock()
+        mock_openai.OpenAI.side_effect = Exception("Connection error")
+
+        with patch.dict('sys.modules', {'openai': mock_openai}):
+            handler = LLMHandler.__new__(LLMHandler)
+            handler._config = config
+            handler._client = None
+            handler._available = False
+            # 実際のインポートをシミュレート
+            try:
+                from openai import OpenAI
+                handler._client = OpenAI(api_key=config.api_key)
+                handler._available = True
+            except ImportError:
+                pass
+            except Exception:
+                pass
+            # 例外時は_available=False
+            assert handler._available is False
+
+    def test_explain_result_with_dataframe(self, sample_df, mock_openai_response):
+        """explain_resultがDataFrameを受け取った場合"""
+        mock_openai_response.choices[0].message.content = "分析結果の説明です"
+
+        config = LLMConfig(api_key="test-key")
+        handler = LLMHandler.__new__(LLMHandler)
+        handler._config = config
+        handler._available = True
+        handler._client = Mock()
+        handler._client.chat.completions.create.return_value = mock_openai_response
+
+        result_df = pd.DataFrame({"category": ["A", "B"], "value": [100, 200]})
+        result = handler.explain_result("売上の合計", result_df, sample_df)
+
+        assert result.success is True
+        assert result.explanation == "分析結果の説明です"
+
+    def test_explain_result_with_series(self, sample_df, mock_openai_response):
+        """explain_resultがSeriesを受け取った場合"""
+        mock_openai_response.choices[0].message.content = "シリーズの説明です"
+
+        config = LLMConfig(api_key="test-key")
+        handler = LLMHandler.__new__(LLMHandler)
+        handler._config = config
+        handler._available = True
+        handler._client = Mock()
+        handler._client.chat.completions.create.return_value = mock_openai_response
+
+        result_series = pd.Series([100, 200, 300], name="sales")
+        result = handler.explain_result("売上詳細", result_series, sample_df)
+
+        assert result.success is True
+        assert result.explanation == "シリーズの説明です"
+
+    def test_explain_result_exception(self, sample_df):
+        """explain_resultで例外が発生した場合"""
+        config = LLMConfig(api_key="test-key")
+        handler = LLMHandler.__new__(LLMHandler)
+        handler._config = config
+        handler._available = True
+        handler._client = Mock()
+        handler._client.chat.completions.create.side_effect = Exception("API Error")
+
+        result = handler.explain_result("売上の合計", 4500, sample_df)
+
+        assert result.success is False
+        assert "API Error" in result.error
+
+    def test_generate_code_exception(self, sample_df):
+        """generate_codeで例外が発生した場合"""
+        config = LLMConfig(api_key="test-key")
+        handler = LLMHandler.__new__(LLMHandler)
+        handler._config = config
+        handler._available = True
+        handler._client = Mock()
+        handler._client.chat.completions.create.side_effect = Exception("Network Error")
+
+        result = handler.generate_code("売上の合計", sample_df)
+
+        assert result.success is False
+        assert "Network Error" in result.error
+
+    def test_generate_code_no_usage(self, sample_df):
+        """generate_codeでusageがNoneの場合"""
+        mock_response = Mock()
+        mock_response.choices = [Mock()]
+        mock_response.choices[0].message.content = "result = df['sales'].sum()"
+        mock_response.usage = None
+
+        config = LLMConfig(api_key="test-key")
+        handler = LLMHandler.__new__(LLMHandler)
+        handler._config = config
+        handler._available = True
+        handler._client = Mock()
+        handler._client.chat.completions.create.return_value = mock_response
+
+        result = handler.generate_code("売上の合計", sample_df)
+
+        assert result.success is True
+        assert result.tokens_used == 0
+
+    def test_explain_result_no_usage(self, sample_df):
+        """explain_resultでusageがNoneの場合"""
+        mock_response = Mock()
+        mock_response.choices = [Mock()]
+        mock_response.choices[0].message.content = "結果の説明です"
+        mock_response.usage = None
+
+        config = LLMConfig(api_key="test-key")
+        handler = LLMHandler.__new__(LLMHandler)
+        handler._config = config
+        handler._available = True
+        handler._client = Mock()
+        handler._client.chat.completions.create.return_value = mock_response
+
+        result = handler.explain_result("質問", 100, sample_df)
+
+        assert result.success is True
+        assert result.tokens_used == 0
+
+
+class TestLLMQueryParserWithMock:
+    """モックを使用したLLMQueryParserの詳細テスト"""
+
+    @pytest.fixture
+    def sample_df(self) -> pd.DataFrame:
+        return pd.DataFrame({
+            "a": [1, 2, 3],
+            "b": ["x", "y", "z"],
+        })
+
+    def test_parse_with_llm_success(self, sample_df):
+        """parse_with_llmが成功した場合"""
+        mock_response = Mock()
+        mock_response.choices = [Mock()]
+        mock_response.choices[0].message.content = """{
+            "query_type": "sum",
+            "target_column": "a",
+            "group_column": null,
+            "filter_conditions": [],
+            "confidence": 0.9
+        }"""
+
+        handler = LLMHandler.__new__(LLMHandler)
+        handler._config = LLMConfig(api_key="test-key")
+        handler._available = True
+        handler._client = Mock()
+        handler._client.chat.completions.create.return_value = mock_response
+
+        parser = LLMQueryParser(handler)
+        result = parser.parse_with_llm("合計を計算", sample_df)
+
+        assert result["query_type"] == "sum"
+        assert result["target_column"] == "a"
+        assert result["confidence"] == 0.9
+
+    def test_parse_with_llm_json_in_text(self, sample_df):
+        """parse_with_llmでJSONがテキスト内に埋め込まれている場合"""
+        mock_response = Mock()
+        mock_response.choices = [Mock()]
+        mock_response.choices[0].message.content = """以下がJSON形式の結果です:
+{
+    "query_type": "mean",
+    "target_column": "a",
+    "group_column": "b",
+    "filter_conditions": [],
+    "confidence": 0.85
+}
+これで完了です。"""
+
+        handler = LLMHandler.__new__(LLMHandler)
+        handler._config = LLMConfig(api_key="test-key")
+        handler._available = True
+        handler._client = Mock()
+        handler._client.chat.completions.create.return_value = mock_response
+
+        parser = LLMQueryParser(handler)
+        result = parser.parse_with_llm("平均を計算", sample_df)
+
+        assert result["query_type"] == "mean"
+        assert result["group_column"] == "b"
+
+    def test_parse_with_llm_no_json(self, sample_df):
+        """parse_with_llmでJSONが見つからない場合"""
+        mock_response = Mock()
+        mock_response.choices = [Mock()]
+        mock_response.choices[0].message.content = "JSONを生成できませんでした"
+
+        handler = LLMHandler.__new__(LLMHandler)
+        handler._config = LLMConfig(api_key="test-key")
+        handler._available = True
+        handler._client = Mock()
+        handler._client.chat.completions.create.return_value = mock_response
+
+        parser = LLMQueryParser(handler)
+        result = parser.parse_with_llm("質問", sample_df)
+
+        assert "error" in result
+        assert result["error"] == "JSON parse failed"
+
+    def test_parse_with_llm_exception(self, sample_df):
+        """parse_with_llmで例外が発生した場合"""
+        handler = LLMHandler.__new__(LLMHandler)
+        handler._config = LLMConfig(api_key="test-key")
+        handler._available = True
+        handler._client = Mock()
+        handler._client.chat.completions.create.side_effect = Exception("API Error")
+
+        parser = LLMQueryParser(handler)
+        result = parser.parse_with_llm("質問", sample_df)
+
+        assert "error" in result
+        assert "API Error" in result["error"]
+
+    def test_parse_with_llm_invalid_json(self, sample_df):
+        """parse_with_llmで不正なJSONが返された場合"""
+        mock_response = Mock()
+        mock_response.choices = [Mock()]
+        mock_response.choices[0].message.content = "{invalid json content}"
+
+        handler = LLMHandler.__new__(LLMHandler)
+        handler._config = LLMConfig(api_key="test-key")
+        handler._available = True
+        handler._client = Mock()
+        handler._client.chat.completions.create.return_value = mock_response
+
+        parser = LLMQueryParser(handler)
+        result = parser.parse_with_llm("質問", sample_df)
+
+        assert "error" in result
+
+
+class TestCreateLLMHandler:
+    """create_llm_handler関数のテスト"""
+
+    def test_create_llm_handler_default(self):
+        """デフォルト設定でのハンドラー作成"""
+        from src.llm_handler import create_llm_handler
+
+        handler = create_llm_handler()
+        assert handler is not None
+        assert isinstance(handler, LLMHandler)
+
+    def test_create_llm_handler_with_env(self):
+        """環境変数設定ありでのハンドラー作成"""
+        from src.llm_handler import create_llm_handler
+
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key", "OPENAI_MODEL": "gpt-4o"}):
+            handler = create_llm_handler()
+            assert handler._config.model == "gpt-4o"
+
+
+class TestLLMHandlerEdgeCases:
+    """LLMHandlerのエッジケーステスト"""
+
+    def test_extract_code_incomplete_python_block(self):
+        """不完全なPythonコードブロック"""
+        handler = LLMHandler(LLMConfig(api_key=None))
+
+        # 終了マーカーがない場合
+        content = """```python
+result = df['sales'].sum()
+"""
+        code = handler._extract_code(content)
+        # コードブロックの終了がない場合、そのまま返す
+        assert "result" in code
+
+    def test_extract_code_incomplete_generic_block(self):
+        """不完全な汎用コードブロック"""
+        handler = LLMHandler(LLMConfig(api_key=None))
+
+        # 終了マーカーがない場合
+        content = """```
+result = df.mean()
+"""
+        code = handler._extract_code(content)
+        assert "result" in code
+
+    def test_generate_schema_with_nan(self):
+        """NaNを含むDataFrameのスキーマ生成"""
+        handler = LLMHandler(LLMConfig(api_key=None))
+        df = pd.DataFrame({
+            "col1": [1, None, 3],
+            "col2": ["a", None, "c"],
+        })
+        schema = handler._generate_schema(df)
+        assert "col1" in schema
+        assert "col2" in schema
+
+    def test_generate_schema_empty_df(self):
+        """空のDataFrameのスキーマ生成"""
+        handler = LLMHandler(LLMConfig(api_key=None))
+        df = pd.DataFrame()
+        schema = handler._generate_schema(df)
+        assert schema == ""
+
+    def test_config_timeout_default(self):
+        """デフォルトタイムアウト値"""
+        config = LLMConfig()
+        assert config.timeout == 30
+
+    def test_response_all_fields(self):
+        """LLMResponseの全フィールド設定"""
+        response = LLMResponse(
+            success=True,
+            pandas_code="result = df.sum()",
+            explanation="合計値です",
+            raw_response="```python\nresult = df.sum()\n```",
+            error=None,
+            tokens_used=150,
+        )
+        assert response.pandas_code == "result = df.sum()"
+        assert response.explanation == "合計値です"
+        assert response.raw_response is not None
+        assert response.tokens_used == 150

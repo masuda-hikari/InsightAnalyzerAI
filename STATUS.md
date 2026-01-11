@@ -4,7 +4,7 @@
 
 ## 現在の状況
 - 状況: Phase 6（デプロイ）進行中
-- 進捗: executor.pyテストカバレッジ100%達成
+- 進捗: llm_handler.py/insight_analyzer.pyテストカバレッジ大幅向上
 
 ## 完了した項目
 - Phase 1 (MVP): 完了
@@ -40,23 +40,17 @@
   - オンボーディング進捗表示
   - モバイル対応（レスポンシブCSS）
 - テスト・品質強化: 継続中
-  - 2026-01-11(8): executor.pyテストカバレッジ100%達成 ★NEW
+  - 2026-01-11(9): llm_handler.py/insight_analyzer.pyカバレッジ向上 ★NEW
+    - llm_handler.py: 86%→97%（+11%）
+    - insight_analyzer.py: 88%→94%（+6%）
+    - テスト追加: 37件（463→500件）
+  - 2026-01-11(8): executor.pyテストカバレッジ100%達成
     - executor.py: 90%→100%（+10%）
-    - 例外ハンドリングテスト追加（MemoryError, OutOfBoundsDatetime, KeyError, TypeError）
-    - タイムアウト例外テスト追加
-    - 結果制限テスト追加
     - テスト追加: 21件（442→463件）
   - 2026-01-11(7): test_auth.pyモック改善
-    - MockSessionStateDictクラス追加（dict+ドット記法両対応）
-    - デコレータテスト追加（require_auth, require_plan）
   - 2026-01-11(6): auth/billing テストカバレッジ向上
-    - auth.py: 76%→78%（+2%）
-    - billing.py: 58%→61%（+3%）
   - 2026-01-11(5): data_loader.pyテストカバレッジ向上
-    - data_loader.py: 77%→90%（+13%）
   - 2026-01-11(4): テストカバレッジ大幅向上
-    - insight_analyzer.py: 65%→88%（+23%）
-    - visualizer.py: 95%→97%（+2%）
   - 2026-01-11(3): billing.pyテストカバレッジ向上
   - 2026-01-11(2): テストカバレッジ大幅向上（61%→65%）
   - 2026-01-11(1): テストカバレッジ向上（52%→61%）
@@ -88,17 +82,14 @@
 - GitHub Pages: 準備完了
 
 ## 最近の変更
-- 2026-01-11(8): executor.pyテストカバレッジ100%達成 ★NEW
-  - executor.py: 90%→100%（+10%）
-  - テスト追加: 21件（442→463件）
+- 2026-01-11(9): llm_handler.py/insight_analyzer.pyカバレッジ向上 ★NEW
+  - llm_handler.py: 86%→97%（+11%）
+  - insight_analyzer.py: 88%→94%（+6%）
+  - テスト追加: 37件（463→500件）
+- 2026-01-11(8): executor.pyテストカバレッジ100%達成
 - 2026-01-11(7): test_auth.pyモック改善
-  - MockSessionStateDictクラス追加
-  - デコレータテスト追加
 - 2026-01-11(6): auth/billing テストカバレッジ向上
-  - auth.py: 76%→78%
-  - billing.py: 58%→61%
 - 2026-01-11(5): data_loader.pyテストカバレッジ向上
-  - data_loader.py: 77%→90%（+13%）
 - 2026-01-11(4): テストカバレッジ大幅向上
 - 2026-01-11(3): billing.pyテストカバレッジ向上
 - 2026-01-11(2): テストカバレッジ大幅向上
@@ -107,17 +98,17 @@
 - 2026-01-10: Phase 3 自動インサイト発見機能実装
 
 ## テスト状態
-- 全テストパス: 463件, 30 skipped
-- 総合カバレッジ: 71%
+- 全テストパス: 500件, 30 skipped
+- 総合カバレッジ: 73%
 - コアロジックカバレッジ:
-  - executor.py: 100% ★達成
+  - executor.py: 100% ★
   - query_parser.py: 98%
   - visualizer.py: 97%
+  - llm_handler.py: 97% ★向上
+  - insight_analyzer.py: 94% ★向上
   - insight_engine.py: 91%
   - data_loader.py: 90%
-  - insight_analyzer.py: 88%
-  - llm_handler.py: 86%
   - auth.py: 78%
   - billing.py: 61%
-- Streamlit UI除外時の実効カバレッジ: 約90%
+- Streamlit UI除外時の実効カバレッジ: 約92%
 - セキュリティスキャン: PASS

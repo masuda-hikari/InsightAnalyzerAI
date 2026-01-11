@@ -1038,5 +1038,94 @@ class TestAuthManagerEmailCaseSensitivity:
         assert success is True
 
 
+class TestDecoratorsWithSharedState:
+    """デコレータの成功ケーステスト（共有状態使用）
+
+    デコレータ内で新しいAuthManagerが作成されるが、
+    セッション状態はモジュールレベルで共有されるため、
+    正しくセッション状態を設定すれば成功ケースもテスト可能。
+    """
+
+    @pytest.fixture(autouse=True)
+    def setup_shared_state(self):
+        """共有可能なセッション状態を設定"""
+        from src import auth
+        mock_state = MockSessionStateDict()
+        auth.st.session_state = mock_state
+        yield mock_state
+        auth.st.session_state = MockSessionStateDict()
+
+    def test_require_auth_decorator_authenticated_success(self, setup_shared_state):
+        """認証ありでrequire_authデコレータが成功"""
+        from src.auth import require_auth
+
+        # ユーザーを登録・ログイン
+        manager = AuthManager()
+        manager.register("auth_success@example.com", "password123")
+        manager.login("auth_success@example.com", "password123")
+
+        # 認証済みなので関数が実行される
+        @require_auth
+        def protected_function():
+            return "success_from_protected"
+
+        result = protected_function()
+        # auth.pyの419行目のreturn func(*args, **kwargs)がカバーされる
+        assert result == "success_from_protected"
+
+    def test_require_plan_decorator_user_plan_retrieved(self, setup_shared_state):
+        """require_planデコレータでユーザープランが取得される"""
+        from src.auth import require_plan
+
+        # ユーザーを登録・ログイン・Basicプランに更新
+        manager = AuthManager()
+        manager.register("plan_success@example.com", "password123")
+        manager.login("plan_success@example.com", "password123")
+        manager.update_plan("plan_success@example.com", PlanType.BASIC)
+
+        # 441行目のcurrent_plan = user.planがカバーされる
+        @require_plan(PlanType.BASIC)
+        def basic_function():
+            return "basic_success"
+
+        result = basic_function()
+        assert result == "basic_success"
+
+    def test_require_plan_decorator_success_with_pro_user(self, setup_shared_state):
+        """ProユーザーでBasic要求のデコレータが成功"""
+        from src.auth import require_plan
+
+        # ユーザーを登録・ログイン・Proプランに更新
+        manager = AuthManager()
+        manager.register("pro_success@example.com", "password123")
+        manager.login("pro_success@example.com", "password123")
+        manager.update_plan("pro_success@example.com", PlanType.PRO)
+
+        # 450行目のreturn func(*args, **kwargs)がカバーされる
+        @require_plan(PlanType.BASIC)
+        def premium_function():
+            return "premium_success"
+
+        result = premium_function()
+        assert result == "premium_success"
+
+    def test_require_plan_decorator_insufficient_plan(self, setup_shared_state):
+        """プラン不足でrequire_planデコレータが失敗"""
+        from src.auth import require_plan
+
+        # ユーザーを登録・ログイン（Freeプランのまま）
+        manager = AuthManager()
+        manager.register("free_fail@example.com", "password123")
+        manager.login("free_fail@example.com", "password123")
+
+        @require_plan(PlanType.PRO)
+        def pro_only_function():
+            return "pro_only"
+
+        result = pro_only_function()
+        # Freeプランなので実行されずNone
+        assert result is None
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

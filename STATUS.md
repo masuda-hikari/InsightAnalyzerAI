@@ -1,10 +1,10 @@
 ﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿# InsightAnalyzerAI - ステータス
 
-最終更新: 2026-01-11
+最終更新: 2026-01-12
 
 ## 現在の状況
 - 状況: Phase 6（デプロイ）進行中
-- 進捗: billing.pyテストカバレッジ大幅向上（60%→82%）
+- 進捗: auth.pyテストカバレッジ100%達成
 
 ## 完了した項目
 - Phase 1 (MVP): 完了
@@ -40,15 +40,12 @@
   - オンボーディング進捗表示
   - モバイル対応（レスポンシブCSS）
 - テスト・品質強化: 継続中
-  - 2026-01-11(11): billing.pyカバレッジ大幅向上 ★NEW
-    - billing.py: 60%→82%（+22%）
-    - 総合カバレッジ: 74%→76%（+2%）
-    - テスト追加: 13件のUI/エッジケーステスト
+  - 2026-01-12: auth.pyカバレッジ100%達成 ★NEW
+    - auth.py: 79%→100%（+21%）
+    - 総合カバレッジ: 76%→78%（+2%）
+    - テスト追加: 8件のrender_auth_ui関数テスト
+  - 2026-01-11(11): billing.pyカバレッジ大幅向上
   - 2026-01-11(10): insight_engine.py/auth.pyカバレッジ向上
-  - 2026-01-11(9): llm_handler.py/insight_analyzer.pyカバレッジ向上
-  - 2026-01-11(8): executor.pyテストカバレッジ100%達成
-  - 2026-01-11(7): test_auth.pyモック改善
-  - 2026-01-11(6): auth/billing テストカバレッジ向上
 
 ## 次のアクション
 **人間作業必要**:
@@ -77,28 +74,27 @@
 - GitHub Pages: 準備完了
 
 ## 最近の変更
-- 2026-01-11(11): billing.pyカバレッジ大幅向上 ★NEW
-  - billing.py: 60%→82%（+22%）
-  - 総合カバレッジ: 74%→76%（+2%）
-  - 新規テストクラス: 7クラス追加
+- 2026-01-12: auth.pyカバレッジ100%達成 ★NEW
+  - auth.py: 79%→100%（+21%）
+  - 総合カバレッジ: 76%→78%（+2%）
+  - 新規テストクラス: TestRenderAuthUI（8テスト）
+- 2026-01-11(11): billing.pyカバレッジ大幅向上
 - 2026-01-11(10): insight_engine.py/auth.pyカバレッジ向上
 - 2026-01-11(9): llm_handler.py/insight_analyzer.pyカバレッジ向上
 - 2026-01-11(8): executor.pyテストカバレッジ100%達成
-- 2026-01-11(7): test_auth.pyモック改善
-- 2026-01-11(6): auth/billing テストカバレッジ向上
 
 ## テスト状態
-- 全テストパス: 528件, 30 skipped
-- 総合カバレッジ: 76% ★向上
+- 全テストパス: 536件, 30 skipped
+- 総合カバレッジ: 78% ★向上
 - コアロジックカバレッジ:
   - executor.py: 100% ★
+  - auth.py: 100% ★★NEW（+21%）
   - insight_engine.py: 98%
   - query_parser.py: 98%
   - visualizer.py: 97%
   - llm_handler.py: 97%
   - insight_analyzer.py: 94%
   - data_loader.py: 90%
-  - billing.py: 82% ★大幅向上（+22%）
-  - auth.py: 79%
-- Streamlit UI除外時の実効カバレッジ: 約94%
+  - billing.py: 82%
+- Streamlit UI除外時の実効カバレッジ: 約96%
 - セキュリティスキャン: PASS

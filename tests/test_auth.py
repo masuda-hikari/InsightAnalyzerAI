@@ -1127,5 +1127,352 @@ class TestDecoratorsWithSharedState:
         assert result is None
 
 
+class TestRenderAuthUI:
+    """render_auth_ui関数のテスト
+
+    Streamlit UI関数のテスト。UI要素はモックしてカバレッジを確保。
+    """
+
+    @pytest.fixture(autouse=True)
+    def setup_shared_state(self):
+        """共有可能なセッション状態を設定"""
+        from src import auth
+        mock_state = MockSessionStateDict()
+        auth.st.session_state = mock_state
+        yield mock_state
+        auth.st.session_state = MockSessionStateDict()
+
+    def test_render_auth_ui_authenticated(self, setup_shared_state):
+        """認証済みユーザーでのrender_auth_ui"""
+        from src import auth
+        from src.auth import render_auth_ui
+
+        # ユーザーを登録・ログイン
+        manager = AuthManager()
+        manager.register("ui_test@example.com", "password123")
+        manager.login("ui_test@example.com", "password123")
+
+        # UI要素のモック
+        sidebar_mock = MagicMock()
+        auth.st.sidebar = sidebar_mock
+        auth.st.sidebar.__enter__ = MagicMock(return_value=sidebar_mock)
+        auth.st.sidebar.__exit__ = MagicMock(return_value=False)
+        auth.st.divider = MagicMock()
+        auth.st.markdown = MagicMock()
+        auth.st.caption = MagicMock()
+        auth.st.progress = MagicMock()
+        auth.st.button = MagicMock(return_value=False)  # ログアウトボタンクリックしない
+
+        result = render_auth_ui()
+
+        # 認証済みなのでTrue
+        assert result is True
+        # 必要なUI関数が呼ばれたことを確認
+        auth.st.divider.assert_called()
+
+    def test_render_auth_ui_authenticated_logout_clicked(self, setup_shared_state):
+        """認証済みユーザーがログアウトボタンをクリック"""
+        from src import auth
+        from src.auth import render_auth_ui
+
+        # ユーザーを登録・ログイン
+        manager = AuthManager()
+        manager.register("logout_ui@example.com", "password123")
+        manager.login("logout_ui@example.com", "password123")
+
+        # UI要素のモック
+        sidebar_mock = MagicMock()
+        auth.st.sidebar = sidebar_mock
+        auth.st.sidebar.__enter__ = MagicMock(return_value=sidebar_mock)
+        auth.st.sidebar.__exit__ = MagicMock(return_value=False)
+        auth.st.divider = MagicMock()
+        auth.st.markdown = MagicMock()
+        auth.st.caption = MagicMock()
+        auth.st.progress = MagicMock()
+        auth.st.button = MagicMock(return_value=True)  # ログアウトボタンクリック
+        auth.st.rerun = MagicMock()
+
+        result = render_auth_ui()
+
+        # rerunが呼ばれる（ログアウト処理）
+        auth.st.rerun.assert_called_once()
+
+    def test_render_auth_ui_unauthenticated_no_action(self, setup_shared_state):
+        """未認証ユーザーでのrender_auth_ui（アクションなし）"""
+        from src import auth
+        from src.auth import render_auth_ui
+
+        # 未認証状態
+
+        # UI要素のモック
+        sidebar_mock = MagicMock()
+        auth.st.sidebar = sidebar_mock
+        auth.st.sidebar.__enter__ = MagicMock(return_value=sidebar_mock)
+        auth.st.sidebar.__exit__ = MagicMock(return_value=False)
+        auth.st.divider = MagicMock()
+        auth.st.subheader = MagicMock()
+        auth.st.tabs = MagicMock(return_value=[MagicMock(), MagicMock()])
+        auth.st.text_input = MagicMock(return_value="")
+        auth.st.button = MagicMock(return_value=False)  # ボタンクリックなし
+        auth.st.caption = MagicMock()
+
+        result = render_auth_ui()
+
+        # 未認証なのでFalse
+        assert result is False
+        auth.st.subheader.assert_called()
+
+    def test_render_auth_ui_login_success(self, setup_shared_state):
+        """未認証ユーザーがログインに成功"""
+        from src import auth
+        from src.auth import render_auth_ui
+
+        # 先にユーザーを登録しておく
+        manager = AuthManager()
+        manager.register("login_ui@example.com", "password123")
+        manager.logout()  # ログアウト状態にする
+
+        # UI要素のモック
+        sidebar_mock = MagicMock()
+        auth.st.sidebar = sidebar_mock
+        auth.st.sidebar.__enter__ = MagicMock(return_value=sidebar_mock)
+        auth.st.sidebar.__exit__ = MagicMock(return_value=False)
+        auth.st.divider = MagicMock()
+        auth.st.subheader = MagicMock()
+
+        tab1_mock = MagicMock()
+        tab1_mock.__enter__ = MagicMock(return_value=tab1_mock)
+        tab1_mock.__exit__ = MagicMock(return_value=False)
+        tab2_mock = MagicMock()
+        tab2_mock.__enter__ = MagicMock(return_value=tab2_mock)
+        tab2_mock.__exit__ = MagicMock(return_value=False)
+        auth.st.tabs = MagicMock(return_value=[tab1_mock, tab2_mock])
+
+        # ログイン情報を入力してボタンクリック
+        call_count = [0]
+        def text_input_side_effect(label, **kwargs):
+            call_count[0] += 1
+            if call_count[0] == 1:  # メールアドレス
+                return "login_ui@example.com"
+            elif call_count[0] == 2:  # パスワード
+                return "password123"
+            return ""
+        auth.st.text_input = MagicMock(side_effect=text_input_side_effect)
+
+        def button_side_effect(label, **kwargs):
+            if "ログイン" in label and kwargs.get("key") == "login_btn":
+                return True
+            return False
+        auth.st.button = MagicMock(side_effect=button_side_effect)
+
+        auth.st.success = MagicMock()
+        auth.st.error = MagicMock()
+        auth.st.rerun = MagicMock()
+        auth.st.caption = MagicMock()
+
+        result = render_auth_ui()
+
+        # ログイン成功でrerunが呼ばれる
+        auth.st.success.assert_called()
+        auth.st.rerun.assert_called_once()
+
+    def test_render_auth_ui_login_failure(self, setup_shared_state):
+        """未認証ユーザーがログインに失敗"""
+        from src import auth
+        from src.auth import render_auth_ui
+
+        # UI要素のモック
+        sidebar_mock = MagicMock()
+        auth.st.sidebar = sidebar_mock
+        auth.st.sidebar.__enter__ = MagicMock(return_value=sidebar_mock)
+        auth.st.sidebar.__exit__ = MagicMock(return_value=False)
+        auth.st.divider = MagicMock()
+        auth.st.subheader = MagicMock()
+
+        tab1_mock = MagicMock()
+        tab1_mock.__enter__ = MagicMock(return_value=tab1_mock)
+        tab1_mock.__exit__ = MagicMock(return_value=False)
+        tab2_mock = MagicMock()
+        tab2_mock.__enter__ = MagicMock(return_value=tab2_mock)
+        tab2_mock.__exit__ = MagicMock(return_value=False)
+        auth.st.tabs = MagicMock(return_value=[tab1_mock, tab2_mock])
+
+        # 存在しないユーザーでログイン試行
+        call_count = [0]
+        def text_input_side_effect(label, **kwargs):
+            call_count[0] += 1
+            if call_count[0] == 1:
+                return "nonexistent@example.com"
+            elif call_count[0] == 2:
+                return "wrongpassword"
+            return ""
+        auth.st.text_input = MagicMock(side_effect=text_input_side_effect)
+
+        def button_side_effect(label, **kwargs):
+            if "ログイン" in label and kwargs.get("key") == "login_btn":
+                return True
+            return False
+        auth.st.button = MagicMock(side_effect=button_side_effect)
+
+        auth.st.success = MagicMock()
+        auth.st.error = MagicMock()
+        auth.st.rerun = MagicMock()
+        auth.st.caption = MagicMock()
+
+        result = render_auth_ui()
+
+        # ログイン失敗でerrorが呼ばれる
+        auth.st.error.assert_called()
+
+    def test_render_auth_ui_register_success(self, setup_shared_state):
+        """未認証ユーザーが新規登録に成功"""
+        from src import auth
+        from src.auth import render_auth_ui
+
+        # UI要素のモック
+        sidebar_mock = MagicMock()
+        auth.st.sidebar = sidebar_mock
+        auth.st.sidebar.__enter__ = MagicMock(return_value=sidebar_mock)
+        auth.st.sidebar.__exit__ = MagicMock(return_value=False)
+        auth.st.divider = MagicMock()
+        auth.st.subheader = MagicMock()
+
+        tab1_mock = MagicMock()
+        tab1_mock.__enter__ = MagicMock(return_value=tab1_mock)
+        tab1_mock.__exit__ = MagicMock(return_value=False)
+        tab2_mock = MagicMock()
+        tab2_mock.__enter__ = MagicMock(return_value=tab2_mock)
+        tab2_mock.__exit__ = MagicMock(return_value=False)
+        auth.st.tabs = MagicMock(return_value=[tab1_mock, tab2_mock])
+
+        # 登録情報を入力（tab2の3つのフィールド + tab1の2つ）
+        call_count = [0]
+        def text_input_side_effect(label, **kwargs):
+            call_count[0] += 1
+            key = kwargs.get("key", "")
+            if key == "login_email":
+                return ""
+            elif key == "login_password":
+                return ""
+            elif key == "reg_email":
+                return "new_user@example.com"
+            elif key == "reg_password":
+                return "newpassword123"
+            elif key == "reg_password_confirm":
+                return "newpassword123"
+            return ""
+        auth.st.text_input = MagicMock(side_effect=text_input_side_effect)
+
+        def button_side_effect(label, **kwargs):
+            if kwargs.get("key") == "register_btn":
+                return True
+            return False
+        auth.st.button = MagicMock(side_effect=button_side_effect)
+
+        auth.st.success = MagicMock()
+        auth.st.error = MagicMock()
+        auth.st.rerun = MagicMock()
+        auth.st.caption = MagicMock()
+
+        result = render_auth_ui()
+
+        # 登録成功でsuccessとrerunが呼ばれる
+        auth.st.success.assert_called()
+        auth.st.rerun.assert_called_once()
+
+    def test_render_auth_ui_register_password_mismatch(self, setup_shared_state):
+        """未認証ユーザーが新規登録時にパスワード不一致"""
+        from src import auth
+        from src.auth import render_auth_ui
+
+        # UI要素のモック
+        sidebar_mock = MagicMock()
+        auth.st.sidebar = sidebar_mock
+        auth.st.sidebar.__enter__ = MagicMock(return_value=sidebar_mock)
+        auth.st.sidebar.__exit__ = MagicMock(return_value=False)
+        auth.st.divider = MagicMock()
+        auth.st.subheader = MagicMock()
+
+        tab1_mock = MagicMock()
+        tab1_mock.__enter__ = MagicMock(return_value=tab1_mock)
+        tab1_mock.__exit__ = MagicMock(return_value=False)
+        tab2_mock = MagicMock()
+        tab2_mock.__enter__ = MagicMock(return_value=tab2_mock)
+        tab2_mock.__exit__ = MagicMock(return_value=False)
+        auth.st.tabs = MagicMock(return_value=[tab1_mock, tab2_mock])
+
+        def text_input_side_effect(label, **kwargs):
+            key = kwargs.get("key", "")
+            if key == "reg_email":
+                return "new@example.com"
+            elif key == "reg_password":
+                return "password123"
+            elif key == "reg_password_confirm":
+                return "differentpassword"
+            return ""
+        auth.st.text_input = MagicMock(side_effect=text_input_side_effect)
+
+        def button_side_effect(label, **kwargs):
+            if kwargs.get("key") == "register_btn":
+                return True
+            return False
+        auth.st.button = MagicMock(side_effect=button_side_effect)
+
+        auth.st.error = MagicMock()
+        auth.st.caption = MagicMock()
+
+        result = render_auth_ui()
+
+        # パスワード不一致でerrorが呼ばれる
+        auth.st.error.assert_called_with("パスワードが一致しません")
+
+    def test_render_auth_ui_register_failure(self, setup_shared_state):
+        """未認証ユーザーが新規登録に失敗（無効なメール等）"""
+        from src import auth
+        from src.auth import render_auth_ui
+
+        # UI要素のモック
+        sidebar_mock = MagicMock()
+        auth.st.sidebar = sidebar_mock
+        auth.st.sidebar.__enter__ = MagicMock(return_value=sidebar_mock)
+        auth.st.sidebar.__exit__ = MagicMock(return_value=False)
+        auth.st.divider = MagicMock()
+        auth.st.subheader = MagicMock()
+
+        tab1_mock = MagicMock()
+        tab1_mock.__enter__ = MagicMock(return_value=tab1_mock)
+        tab1_mock.__exit__ = MagicMock(return_value=False)
+        tab2_mock = MagicMock()
+        tab2_mock.__enter__ = MagicMock(return_value=tab2_mock)
+        tab2_mock.__exit__ = MagicMock(return_value=False)
+        auth.st.tabs = MagicMock(return_value=[tab1_mock, tab2_mock])
+
+        def text_input_side_effect(label, **kwargs):
+            key = kwargs.get("key", "")
+            if key == "reg_email":
+                return "invalid-email"  # 無効なメールアドレス
+            elif key == "reg_password":
+                return "password123"
+            elif key == "reg_password_confirm":
+                return "password123"
+            return ""
+        auth.st.text_input = MagicMock(side_effect=text_input_side_effect)
+
+        def button_side_effect(label, **kwargs):
+            if kwargs.get("key") == "register_btn":
+                return True
+            return False
+        auth.st.button = MagicMock(side_effect=button_side_effect)
+
+        auth.st.success = MagicMock()
+        auth.st.error = MagicMock()
+        auth.st.caption = MagicMock()
+
+        result = render_auth_ui()
+
+        # 登録失敗でerrorが呼ばれる
+        auth.st.error.assert_called()
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

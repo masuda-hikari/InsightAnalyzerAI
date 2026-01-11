@@ -571,3 +571,186 @@ class TestDataLoaderMetadata:
 
         # "例"というキーワードが含まれている
         assert "例" in schema
+
+
+class TestDataLoaderCSVParserError:
+    """CSVパースエラーのテスト"""
+
+    @pytest.fixture
+    def loader(self) -> DataLoader:
+        """DataLoaderインスタンス"""
+        return DataLoader()
+
+    def test_load_csv_parser_error(self, loader: DataLoader):
+        """CSVパースエラー（107行カバレッジ）"""
+        with tempfile.NamedTemporaryFile(suffix=".csv", delete=False, mode="w") as f:
+            # 不正な行を含むCSV（列数の不一致）
+            f.write('a,b,c\n1,2\n3,4,5,6,7\n')
+            temp_path = f.name
+
+        try:
+            # パースエラーが発生することを確認
+            with pytest.raises(ValueError, match="パースエラー|Error"):
+                loader.load(temp_path)
+        finally:
+            os.unlink(temp_path)
+
+
+class TestDataLoaderExcelCoverage:
+    """Excel読み込みカバレッジ向上テスト"""
+
+    @pytest.fixture
+    def loader(self) -> DataLoader:
+        """DataLoaderインスタンス"""
+        return DataLoader()
+
+    def test_load_excel_library_error_xlrd(self, loader: DataLoader):
+        """Excelライブラリエラー（xlrd）（122-125行カバレッジ）"""
+        from unittest.mock import patch, MagicMock
+
+        with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as f:
+            temp_path = f.name
+
+        try:
+            # pd.read_excelをモックしてxlrdエラーをシミュレート
+            with patch('pandas.read_excel') as mock_read:
+                mock_read.side_effect = Exception("xlrd is required for reading .xls files")
+
+                with pytest.raises(ValueError, match="ライブラリがありません"):
+                    loader.load(temp_path)
+        finally:
+            os.unlink(temp_path)
+
+    def test_load_excel_library_error_openpyxl(self, loader: DataLoader):
+        """Excelライブラリエラー（openpyxl）（122-125行カバレッジ）"""
+        from unittest.mock import patch
+
+        with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as f:
+            temp_path = f.name
+
+        try:
+            # pd.read_excelをモックしてopenpyxlエラーをシミュレート
+            with patch('pandas.read_excel') as mock_read:
+                mock_read.side_effect = Exception("openpyxl is required for reading .xlsx files")
+
+                with pytest.raises(ValueError, match="ライブラリがありません"):
+                    loader.load(temp_path)
+        finally:
+            os.unlink(temp_path)
+
+    def test_load_excel_empty_file_mocked(self, loader: DataLoader):
+        """空のExcelファイル（118-120行カバレッジ）"""
+        from unittest.mock import patch
+
+        with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as f:
+            temp_path = f.name
+
+        try:
+            # pd.read_excelをモックして空DataFrameを返す
+            with patch('pandas.read_excel') as mock_read:
+                mock_read.return_value = pd.DataFrame()
+
+                with pytest.raises(ValueError, match="空です"):
+                    loader.load(temp_path)
+        finally:
+            os.unlink(temp_path)
+
+
+class TestDataLoaderParquetCoverage:
+    """Parquet読み込みカバレッジ向上テスト"""
+
+    @pytest.fixture
+    def loader(self) -> DataLoader:
+        """DataLoaderインスタンス"""
+        return DataLoader()
+
+    def test_load_parquet_empty_file_mocked(self, loader: DataLoader):
+        """空のParquetファイル（150-152行カバレッジ）"""
+        from unittest.mock import patch
+
+        with tempfile.NamedTemporaryFile(suffix=".parquet", delete=False) as f:
+            temp_path = f.name
+
+        try:
+            # pd.read_parquetをモックして空DataFrameを返す
+            with patch('pandas.read_parquet') as mock_read:
+                mock_read.return_value = pd.DataFrame()
+
+                with pytest.raises(ValueError, match="空です"):
+                    loader.load(temp_path)
+        finally:
+            os.unlink(temp_path)
+
+    def test_load_parquet_library_error_pyarrow(self, loader: DataLoader):
+        """Parquetライブラリエラー（pyarrow）（154-157行カバレッジ）"""
+        from unittest.mock import patch
+
+        with tempfile.NamedTemporaryFile(suffix=".parquet", delete=False) as f:
+            temp_path = f.name
+
+        try:
+            # pd.read_parquetをモックしてpyarrowエラーをシミュレート
+            with patch('pandas.read_parquet') as mock_read:
+                mock_read.side_effect = Exception("pyarrow is required for reading parquet files")
+
+                with pytest.raises(ValueError, match="ライブラリがありません"):
+                    loader.load(temp_path)
+        finally:
+            os.unlink(temp_path)
+
+    def test_load_parquet_library_error_fastparquet(self, loader: DataLoader):
+        """Parquetライブラリエラー（fastparquet）（154-157行カバレッジ）"""
+        from unittest.mock import patch
+
+        with tempfile.NamedTemporaryFile(suffix=".parquet", delete=False) as f:
+            temp_path = f.name
+
+        try:
+            # pd.read_parquetをモックしてfastparquetエラーをシミュレート
+            with patch('pandas.read_parquet') as mock_read:
+                mock_read.side_effect = Exception("fastparquet is required for reading parquet files")
+
+                with pytest.raises(ValueError, match="ライブラリがありません"):
+                    loader.load(temp_path)
+        finally:
+            os.unlink(temp_path)
+
+    def test_load_parquet_general_error(self, loader: DataLoader):
+        """Parquet一般読み込みエラー（158行カバレッジ）"""
+        from unittest.mock import patch
+
+        with tempfile.NamedTemporaryFile(suffix=".parquet", delete=False) as f:
+            temp_path = f.name
+
+        try:
+            # pd.read_parquetをモックして一般エラーをシミュレート
+            with patch('pandas.read_parquet') as mock_read:
+                mock_read.side_effect = Exception("Unknown parquet error occurred")
+
+                with pytest.raises(ValueError, match="読み込みエラー"):
+                    loader.load(temp_path)
+        finally:
+            os.unlink(temp_path)
+
+
+class TestDataLoaderUnimplementedExtension:
+    """未実装拡張子のテスト（71行カバレッジ）"""
+
+    def test_unimplemented_extension(self):
+        """SUPPORTED_EXTENSIONSを拡張して未実装拡張子をテスト"""
+        from unittest.mock import patch
+
+        loader = DataLoader()
+
+        # 一時的にSUPPORTED_EXTENSIONSを拡張
+        with tempfile.NamedTemporaryFile(suffix=".fake", delete=False) as f:
+            f.write(b"test data")
+            temp_path = f.name
+
+        try:
+            # SUPPORTED_EXTENSIONSを一時的に変更
+            with patch.object(DataLoader, 'SUPPORTED_EXTENSIONS', {'.csv', '.xlsx', '.xls', '.json', '.parquet', '.fake'}):
+                with pytest.raises(ValueError, match="未実装の拡張子"):
+                    loader.load(temp_path)
+        finally:
+            os.unlink(temp_path)

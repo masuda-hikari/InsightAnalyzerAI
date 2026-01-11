@@ -807,5 +807,216 @@ class TestPasswordHashingSecurity:
             assert hash1 != hash2
 
 
+class MockSessionStateDict(dict):
+    """dictとドット記法の両方をサポートするセッション状態モック"""
+    def __getattr__(self, key):
+        try:
+            return self[key]
+        except KeyError:
+            raise AttributeError(key)
+
+    def __setattr__(self, key, value):
+        self[key] = value
+
+    def __delattr__(self, key):
+        try:
+            del self[key]
+        except KeyError:
+            raise AttributeError(key)
+
+
+class TestUsageTrackerResetOnNewDay:
+    """日が変わった場合のリセットテスト"""
+
+    @pytest.fixture
+    def mock_session_state(self):
+        """セッション状態のモック"""
+        import streamlit as st
+        mock_state = MockSessionStateDict()
+        st.session_state = mock_state
+        return mock_state
+
+    def test_reset_if_new_day_when_date_changed(self, mock_session_state):
+        """日付が変わったらリセットされる"""
+        from datetime import datetime
+        from src import auth
+
+        # session_stateを事前に初期化
+        mock_session_state["usage_query_count"] = 5
+        mock_session_state["usage_last_date"] = "2020-01-01"
+        mock_session_state["usage_file_sizes"] = [1000, 2000]
+
+        # auth内のstにもアクセスできるようにする
+        auth.st.session_state = mock_session_state
+
+        tracker = UsageTracker()
+        # リセットされるはず（今日と違う日付なので）
+        tracker.reset_if_new_day()
+
+        # リセット後はカウントが0になる
+        assert mock_session_state["usage_query_count"] == 0
+        assert mock_session_state["usage_file_sizes"] == []
+        assert mock_session_state["usage_last_date"] == datetime.now().strftime("%Y-%m-%d")
+
+    def test_reset_if_new_day_same_day(self, mock_session_state):
+        """同じ日付ならリセットされない"""
+        from datetime import datetime
+        from src import auth
+
+        today = datetime.now().strftime("%Y-%m-%d")
+
+        # 今日の日付で初期化
+        mock_session_state["usage_query_count"] = 5
+        mock_session_state["usage_last_date"] = today
+        mock_session_state["usage_file_sizes"] = [1000, 2000]
+
+        auth.st.session_state = mock_session_state
+
+        tracker = UsageTracker()
+        # リセットは発生しない（今日の日付のまま）
+        tracker.reset_if_new_day()
+
+        # カウントはそのまま
+        assert mock_session_state["usage_query_count"] == 5
+        assert mock_session_state["usage_file_sizes"] == [1000, 2000]
+
+    def test_get_query_count_triggers_reset_on_new_day(self, mock_session_state):
+        """get_query_countでも日付変更時にリセットされる"""
+        from src import auth
+
+        # 昨日の日付とカウントを設定
+        mock_session_state["usage_query_count"] = 10
+        mock_session_state["usage_last_date"] = "2020-01-01"
+        mock_session_state["usage_file_sizes"] = [1000]
+
+        auth.st.session_state = mock_session_state
+
+        tracker = UsageTracker()
+        # get_query_countでリセットが発生
+        count = tracker.get_query_count()
+        assert count == 0
+
+
+class TestAuthManagerQueryLimitExceeded:
+    """クエリ制限超過のテスト"""
+
+    @pytest.fixture
+    def mock_session_state(self):
+        """セッション状態のモック"""
+        import streamlit as st
+        mock_state = MockSessionStateDict()
+        st.session_state = mock_state
+        return mock_state
+
+    def test_can_execute_query_at_limit(self, mock_session_state):
+        """クエリ制限に達した場合"""
+        from datetime import datetime
+        from src import auth
+
+        today = datetime.now().strftime("%Y-%m-%d")
+
+        # session_stateを初期化
+        mock_session_state["usage_query_count"] = 10  # Freeプランの制限（10回）
+        mock_session_state["usage_last_date"] = today
+        mock_session_state["usage_file_sizes"] = []
+        mock_session_state["auth_user"] = None
+        mock_session_state["auth_users_db"] = {}
+
+        auth.st.session_state = mock_session_state
+
+        manager = AuthManager()
+
+        can_execute, message = manager.can_execute_query()
+
+        assert can_execute is False
+        assert "上限" in message
+
+    def test_can_execute_query_over_limit(self, mock_session_state):
+        """クエリ制限を超過した場合"""
+        from datetime import datetime
+        from src import auth
+
+        today = datetime.now().strftime("%Y-%m-%d")
+
+        # Freeプランの制限（10回）を超える
+        mock_session_state["usage_query_count"] = 15
+        mock_session_state["usage_last_date"] = today
+        mock_session_state["usage_file_sizes"] = []
+        mock_session_state["auth_user"] = None
+        mock_session_state["auth_users_db"] = {}
+
+        auth.st.session_state = mock_session_state
+
+        manager = AuthManager()
+
+        can_execute, message = manager.can_execute_query()
+
+        assert can_execute is False
+        assert "10" in message  # 制限数が表示される
+
+
+class TestAuthManagerUpdatePlanForLoggedInUser:
+    """ログイン中ユーザーのプラン更新テスト"""
+
+    @pytest.fixture
+    def mock_session_state(self):
+        """セッション状態のモック"""
+        import streamlit as st
+        st.session_state = {}
+        return st.session_state
+
+    def test_update_plan_updates_current_user_session(self, mock_session_state):
+        """ログイン中ユーザーのプラン更新でセッションも更新される"""
+        manager = AuthManager()
+        manager.register("user@example.com", "password123")
+        manager.login("user@example.com", "password123")
+
+        # 現在のプランを確認
+        assert manager.get_current_user().plan == PlanType.FREE
+
+        # プラン更新
+        success = manager.update_plan(
+            "user@example.com",
+            PlanType.PRO,
+            stripe_customer_id="cus_123",
+            stripe_subscription_id="sub_456"
+        )
+
+        assert success is True
+        # セッション内のユーザーも更新されている
+        current_user = manager.get_current_user()
+        assert current_user.plan == PlanType.PRO
+        assert current_user.stripe_customer_id == "cus_123"
+        assert current_user.stripe_subscription_id == "sub_456"
+
+
+class TestAuthManagerEmailCaseSensitivity:
+    """メールアドレスの大文字小文字処理テスト"""
+
+    @pytest.fixture
+    def mock_session_state(self):
+        """セッション状態のモック"""
+        import streamlit as st
+        st.session_state = {}
+        return st.session_state
+
+    def test_register_with_uppercase_login_with_lowercase(self, mock_session_state):
+        """大文字で登録して小文字でログイン"""
+        manager = AuthManager()
+        manager.register("USER@EXAMPLE.COM", "password123")
+
+        success, _ = manager.login("user@example.com", "password123")
+        assert success is True
+
+    def test_update_plan_case_insensitive(self, mock_session_state):
+        """プラン更新もメールアドレス大文字小文字を無視"""
+        manager = AuthManager()
+        manager.register("user@example.com", "password123")
+
+        # 大文字でプラン更新
+        success = manager.update_plan("USER@EXAMPLE.COM", PlanType.BASIC)
+        assert success is True
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

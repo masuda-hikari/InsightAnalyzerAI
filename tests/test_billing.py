@@ -1444,5 +1444,364 @@ class TestWebhookEventTypes:
             billing_module.stripe = original_stripe
 
 
+class TestBillingManagerInitWithSecrets:
+    """Stripe初期化の追加テスト"""
+
+    @pytest.fixture(autouse=True)
+    def setup_mock_session(self):
+        """各テスト前にsession_stateをリセット"""
+        import streamlit as st
+        st.session_state = MockSessionState()
+        st.secrets = MagicMock()
+        st.secrets.get = MagicMock(return_value=None)
+
+    def test_init_stripe_env_var_priority(self, monkeypatch):
+        """環境変数が優先されることを確認"""
+        import src.billing as billing_module
+        import streamlit as st
+        original_stripe_available = billing_module.STRIPE_AVAILABLE
+        original_stripe = billing_module.stripe
+
+        mock_stripe_module = MagicMock()
+        billing_module.STRIPE_AVAILABLE = True
+        billing_module.stripe = mock_stripe_module
+
+        try:
+            # 環境変数とsecretsの両方を設定
+            monkeypatch.setenv("STRIPE_SECRET_KEY", "sk_test_env")
+            st.secrets.get = MagicMock(return_value="sk_test_secrets")
+
+            manager = BillingManager()
+            # 環境変数のキーが使われる
+            assert manager.stripe_available is True
+            assert mock_stripe_module.api_key == "sk_test_env"
+        finally:
+            billing_module.STRIPE_AVAILABLE = original_stripe_available
+            billing_module.stripe = original_stripe
+
+
+class TestCheckoutSessionCompleteFlow:
+    """チェックアウトセッション完全フローのテスト"""
+
+    @pytest.fixture(autouse=True)
+    def setup_mock_session(self):
+        """各テスト前にsession_stateをリセット"""
+        import streamlit as st
+        st.session_state = MockSessionState()
+        st.session_state["auth_users_db"] = {}
+        st.secrets = MagicMock()
+        st.secrets.get = MagicMock(return_value=None)
+
+    def test_create_checkout_session_full_flow(self, monkeypatch):
+        """チェックアウトセッション作成の完全フロー"""
+        import src.billing as billing_module
+        import streamlit as st
+        original_stripe_available = billing_module.STRIPE_AVAILABLE
+        original_stripe = billing_module.stripe
+
+        mock_session = MagicMock()
+        mock_session.url = "https://checkout.stripe.com/pay/test123"
+
+        mock_stripe_module = MagicMock()
+        mock_stripe_module.checkout.Session.create.return_value = mock_session
+
+        billing_module.STRIPE_AVAILABLE = True
+        billing_module.stripe = mock_stripe_module
+
+        try:
+            monkeypatch.setenv("STRIPE_SECRET_KEY", "sk_test_xxx")
+            monkeypatch.setenv("STRIPE_SUCCESS_URL", "https://app.example.com/success")
+            monkeypatch.setenv("STRIPE_CANCEL_URL", "https://app.example.com/cancel")
+
+            test_user = User(
+                user_id="user123",
+                email="customer@example.com",
+                password_hash="hash",
+                plan=PlanType.FREE
+            )
+
+            # Stripe Price IDを設定
+            original_config = PRICE_CONFIGS[PlanType.BASIC]
+            PRICE_CONFIGS[PlanType.BASIC] = PriceConfig(
+                plan=PlanType.BASIC,
+                price_jpy=2980,
+                stripe_price_id="price_basic_monthly",
+                features=original_config.features
+            )
+
+            try:
+                manager = BillingManager()
+                manager.stripe_available = True
+                manager.auth_manager.get_current_user = MagicMock(return_value=test_user)
+
+                url = manager.create_checkout_session(PlanType.BASIC)
+
+                assert url == "https://checkout.stripe.com/pay/test123"
+
+                # APIコールを確認
+                call_kwargs = mock_stripe_module.checkout.Session.create.call_args[1]
+                assert call_kwargs["payment_method_types"] == ["card"]
+                assert call_kwargs["mode"] == "subscription"
+                assert call_kwargs["customer_email"] == "customer@example.com"
+                assert call_kwargs["metadata"]["user_id"] == "user123"
+                assert call_kwargs["metadata"]["plan"] == "basic"
+            finally:
+                PRICE_CONFIGS[PlanType.BASIC] = original_config
+        finally:
+            billing_module.STRIPE_AVAILABLE = original_stripe_available
+            billing_module.stripe = original_stripe
+
+
+class TestSubscriptionRetrievalErrors:
+    """サブスクリプション取得エラーのテスト"""
+
+    @pytest.fixture(autouse=True)
+    def setup_mock_session(self):
+        """各テスト前にsession_stateをリセット"""
+        import streamlit as st
+        st.session_state = MockSessionState()
+        st.secrets = MagicMock()
+        st.secrets.get = MagicMock(return_value=None)
+
+    def test_get_subscription_different_error_types(self, monkeypatch):
+        """異なるエラータイプでのサブスクリプション取得"""
+        import src.billing as billing_module
+        original_stripe_available = billing_module.STRIPE_AVAILABLE
+        original_stripe = billing_module.stripe
+
+        mock_stripe_module = MagicMock()
+        # ネットワークエラーをシミュレート
+        mock_stripe_module.Subscription.retrieve.side_effect = ConnectionError("Network error")
+
+        billing_module.STRIPE_AVAILABLE = True
+        billing_module.stripe = mock_stripe_module
+
+        try:
+            monkeypatch.setenv("STRIPE_SECRET_KEY", "sk_test_xxx")
+
+            test_user = User(
+                user_id="test123",
+                email="test@example.com",
+                password_hash="dummy_hash",
+                plan=PlanType.BASIC,
+                stripe_subscription_id="sub_xxx"
+            )
+
+            manager = BillingManager()
+            manager.stripe_available = True
+            manager.auth_manager.get_current_user = MagicMock(return_value=test_user)
+
+            status = manager.get_subscription_status()
+            assert status is None
+        finally:
+            billing_module.STRIPE_AVAILABLE = original_stripe_available
+            billing_module.stripe = original_stripe
+
+
+class TestCancelSubscriptionErrors:
+    """サブスクリプションキャンセルエラーのテスト"""
+
+    @pytest.fixture(autouse=True)
+    def setup_mock_session(self):
+        """各テスト前にsession_stateをリセット"""
+        import streamlit as st
+        st.session_state = MockSessionState()
+        st.secrets = MagicMock()
+        st.secrets.get = MagicMock(return_value=None)
+
+    def test_cancel_subscription_different_error(self, monkeypatch):
+        """異なるエラーでのキャンセル"""
+        import src.billing as billing_module
+        original_stripe_available = billing_module.STRIPE_AVAILABLE
+        original_stripe = billing_module.stripe
+
+        mock_stripe_module = MagicMock()
+        # タイムアウトエラー
+        mock_stripe_module.Subscription.modify.side_effect = TimeoutError("Request timeout")
+
+        billing_module.STRIPE_AVAILABLE = True
+        billing_module.stripe = mock_stripe_module
+
+        try:
+            monkeypatch.setenv("STRIPE_SECRET_KEY", "sk_test_xxx")
+
+            test_user = User(
+                user_id="test123",
+                email="test@example.com",
+                password_hash="dummy_hash",
+                plan=PlanType.PRO,
+                stripe_subscription_id="sub_xxx"
+            )
+
+            manager = BillingManager()
+            manager.stripe_available = True
+            manager.auth_manager.get_current_user = MagicMock(return_value=test_user)
+
+            result = manager.cancel_subscription()
+            assert result is False
+        finally:
+            billing_module.STRIPE_AVAILABLE = original_stripe_available
+            billing_module.stripe = original_stripe
+
+
+class TestWebhookCheckoutWithNoMatch:
+    """Webhookチェックアウト完了（ユーザー不一致）のテスト"""
+
+    @pytest.fixture(autouse=True)
+    def setup_mock_session(self):
+        """各テスト前にsession_stateをリセット"""
+        import streamlit as st
+        st.session_state = MockSessionState()
+        st.session_state["auth_users_db"] = {}
+        st.secrets = MagicMock()
+        st.secrets.get = MagicMock(return_value=None)
+
+    def test_handle_checkout_completed_user_not_found(self, monkeypatch):
+        """ユーザーが見つからない場合のチェックアウト完了"""
+        import src.billing as billing_module
+        import streamlit as st
+        original_stripe_available = billing_module.STRIPE_AVAILABLE
+        original_stripe = billing_module.stripe
+
+        mock_event = {
+            "type": "checkout.session.completed",
+            "data": {
+                "object": {
+                    "metadata": {
+                        "user_id": "nonexistent_user",
+                        "plan": "basic"
+                    },
+                    "customer": "cus_xxx",
+                    "subscription": "sub_xxx"
+                }
+            }
+        }
+
+        mock_stripe_module = MagicMock()
+        mock_stripe_module.Webhook.construct_event.return_value = mock_event
+
+        billing_module.STRIPE_AVAILABLE = True
+        billing_module.stripe = mock_stripe_module
+
+        try:
+            monkeypatch.setenv("STRIPE_WEBHOOK_SECRET", "whsec_xxx")
+
+            # DBにはユーザーがいない
+            st.session_state["auth_users_db"] = {}
+
+            manager = BillingManager()
+            manager.stripe_available = True
+
+            result = manager.handle_webhook("payload", "sig")
+            # イベント処理自体は成功
+            assert result is True
+        finally:
+            billing_module.STRIPE_AVAILABLE = original_stripe_available
+            billing_module.stripe = original_stripe
+
+
+class TestSubscriptionDeletedNoMatch:
+    """サブスクリプション削除（ユーザー不一致）のテスト"""
+
+    @pytest.fixture(autouse=True)
+    def setup_mock_session(self):
+        """各テスト前にsession_stateをリセット"""
+        import streamlit as st
+        st.session_state = MockSessionState()
+        st.session_state["auth_users_db"] = {}
+        st.secrets = MagicMock()
+        st.secrets.get = MagicMock(return_value=None)
+
+    def test_handle_subscription_deleted_user_not_found(self, monkeypatch):
+        """ユーザーが見つからない場合のサブスクリプション削除"""
+        import src.billing as billing_module
+        import streamlit as st
+        original_stripe_available = billing_module.STRIPE_AVAILABLE
+        original_stripe = billing_module.stripe
+
+        mock_event = {
+            "type": "customer.subscription.deleted",
+            "data": {
+                "object": {
+                    "id": "sub_nonexistent"
+                }
+            }
+        }
+
+        mock_stripe_module = MagicMock()
+        mock_stripe_module.Webhook.construct_event.return_value = mock_event
+
+        billing_module.STRIPE_AVAILABLE = True
+        billing_module.stripe = mock_stripe_module
+
+        try:
+            monkeypatch.setenv("STRIPE_WEBHOOK_SECRET", "whsec_xxx")
+
+            # DBにはユーザーがいない
+            st.session_state["auth_users_db"] = {}
+
+            manager = BillingManager()
+            manager.stripe_available = True
+
+            result = manager.handle_webhook("payload", "sig")
+            assert result is True
+        finally:
+            billing_module.STRIPE_AVAILABLE = original_stripe_available
+            billing_module.stripe = original_stripe
+
+
+class TestPriceConfigEdgeCases:
+    """価格設定のエッジケーステスト"""
+
+    def test_free_plan_has_no_stripe_id(self):
+        """Freeプランにはstripe_price_idがない"""
+        config = PRICE_CONFIGS[PlanType.FREE]
+        assert config.stripe_price_id is None
+
+    def test_enterprise_plan_has_no_stripe_id(self):
+        """Enterpriseプランにはstripe_price_idがない"""
+        config = PRICE_CONFIGS[PlanType.ENTERPRISE]
+        assert config.stripe_price_id is None
+
+    def test_basic_and_pro_can_have_stripe_ids(self):
+        """BasicとProプランはstripe_price_idを持てる"""
+        # デフォルトは環境変数から取得（未設定ならNone）
+        basic_config = PRICE_CONFIGS[PlanType.BASIC]
+        pro_config = PRICE_CONFIGS[PlanType.PRO]
+        # 環境変数が設定されていればstripe_price_idがある
+        # 設定されていなければNone（これは正常）
+        assert basic_config.plan == PlanType.BASIC
+        assert pro_config.plan == PlanType.PRO
+
+
+class TestBillingManagerStripeNotImported:
+    """Stripeがインポートできない場合のテスト"""
+
+    @pytest.fixture(autouse=True)
+    def setup_mock_session(self):
+        """各テスト前にsession_stateをリセット"""
+        import streamlit as st
+        st.session_state = MockSessionState()
+        st.secrets = MagicMock()
+        st.secrets.get = MagicMock(return_value=None)
+
+    def test_all_methods_return_none_or_false_when_stripe_unavailable(self):
+        """Stripe無効時は全メソッドがNone/Falseを返す"""
+        import src.billing as billing_module
+        original_stripe_available = billing_module.STRIPE_AVAILABLE
+        billing_module.STRIPE_AVAILABLE = False
+
+        try:
+            manager = BillingManager()
+
+            assert manager.stripe_available is False
+            assert manager.create_checkout_session(PlanType.BASIC) is None
+            assert manager.get_subscription_status() is None
+            assert manager.cancel_subscription() is False
+            assert manager.handle_webhook("payload", "sig") is False
+        finally:
+            billing_module.STRIPE_AVAILABLE = original_stripe_available
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

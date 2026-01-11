@@ -1283,6 +1283,88 @@ class TestPriceConfigDataclass:
             assert config.plan == plan_type
 
 
+class TestStripeImportFailure:
+    """Stripeインポート失敗時のテスト"""
+
+    @pytest.fixture(autouse=True)
+    def setup_mock_session(self):
+        """各テスト前にsession_stateをリセット"""
+        import streamlit as st
+        st.session_state = MockSessionState()
+        st.secrets = MagicMock()
+        st.secrets.get = MagicMock(return_value=None)
+
+    def test_stripe_import_failure_sets_flag(self, monkeypatch):
+        """Stripeインポート失敗時のフラグ設定"""
+        import src.billing as billing_module
+
+        # インポート失敗状態をシミュレート
+        original_stripe_available = billing_module.STRIPE_AVAILABLE
+        billing_module.STRIPE_AVAILABLE = False
+
+        try:
+            manager = BillingManager()
+            assert manager.stripe_available is False
+        finally:
+            billing_module.STRIPE_AVAILABLE = original_stripe_available
+
+
+class TestCheckoutSessionEdgeCases:
+    """チェックアウトセッションのエッジケーステスト"""
+
+    @pytest.fixture(autouse=True)
+    def setup_mock_session(self):
+        """各テスト前にsession_stateをリセット"""
+        import streamlit as st
+        st.session_state = MockSessionState()
+        st.session_state["auth_users_db"] = {}
+        st.secrets = MagicMock()
+        st.secrets.get = MagicMock(return_value=None)
+
+    def test_create_checkout_session_enterprise_plan(self, monkeypatch):
+        """Enterpriseプラン（price_idなし）でのチェックアウト"""
+        import src.billing as billing_module
+        original_stripe_available = billing_module.STRIPE_AVAILABLE
+        billing_module.STRIPE_AVAILABLE = False
+
+        try:
+            manager = BillingManager()
+            manager.stripe_available = True
+
+            # Enterpriseプランにはprice_idがない
+            url = manager.create_checkout_session(PlanType.ENTERPRISE)
+            assert url is None
+        finally:
+            billing_module.STRIPE_AVAILABLE = original_stripe_available
+
+    def test_create_checkout_session_invalid_plan(self, monkeypatch):
+        """無効なプランでのチェックアウト"""
+        import src.billing as billing_module
+        original_stripe_available = billing_module.STRIPE_AVAILABLE
+        billing_module.STRIPE_AVAILABLE = False
+
+        try:
+            manager = BillingManager()
+            manager.stripe_available = True
+
+            # 存在しないプラン（getでNone返却）
+            # PRICE_CONFIGS.get()がNoneを返すケース
+            from src.billing import PRICE_CONFIGS
+            original_configs = PRICE_CONFIGS.copy()
+
+            # 一時的にPRICE_CONFIGSからBASICを削除
+            del PRICE_CONFIGS[PlanType.BASIC]
+
+            try:
+                url = manager.create_checkout_session(PlanType.BASIC)
+                assert url is None
+            finally:
+                # 元に戻す
+                PRICE_CONFIGS.update(original_configs)
+        finally:
+            billing_module.STRIPE_AVAILABLE = original_stripe_available
+
+
 class TestWebhookEventTypes:
     """Webhookイベントタイプ別のテスト"""
 

@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿# InsightAnalyzerAI - タスク管理
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿# InsightAnalyzerAI - タスク管理
 ## 待機中タスク
 なし（AI実行可能タスク完了）
 

@@ -667,3 +667,809 @@ class TestLLMConfig:
         analyzer = InsightAnalyzer(df, use_llm=True, llm_config=config)
         # 設定は適用されるが、APIキーが無効なためLLMは利用不可
         assert analyzer._llm_handler is not None
+
+
+class TestAskWithLLMEdgeCases:
+    """_ask_with_llm メソッドのエッジケーステスト"""
+
+    @pytest.fixture
+    def sample_df(self) -> pd.DataFrame:
+        return pd.DataFrame({
+            "region": ["東京", "大阪", "名古屋"],
+            "sales": [1000, 2000, 1500],
+        })
+
+    def test_ask_with_llm_handler_none(self, sample_df: pd.DataFrame):
+        """LLMハンドラーがNoneの場合"""
+        analyzer = InsightAnalyzer(sample_df, use_llm=False)
+        # 明示的にNoneを設定
+        analyzer._llm_handler = None
+        result = analyzer._ask_with_llm("salesの合計")
+        assert result is None
+
+    def test_ask_with_llm_handler_unavailable(self, sample_df: pd.DataFrame):
+        """LLMハンドラーが利用不可の場合"""
+        analyzer = InsightAnalyzer(sample_df, use_llm=True)
+        if analyzer._llm_handler:
+            analyzer._llm_handler._available = False
+        result = analyzer._ask_with_llm("salesの合計")
+        assert result is None
+
+    def test_ask_with_llm_generate_code_fails(self, sample_df: pd.DataFrame):
+        """コード生成が失敗した場合"""
+        with patch.dict("sys.modules", {"openai": Mock()}):
+            analyzer = InsightAnalyzer(sample_df, use_llm=True)
+            if analyzer._llm_handler:
+                # 失敗レスポンスを返すモック
+                from src.llm_handler import LLMResponse
+                mock_response = LLMResponse(success=False, pandas_code=None)
+                analyzer._llm_handler.generate_code = Mock(return_value=mock_response)
+                analyzer._llm_handler._available = True
+
+                result = analyzer._ask_with_llm("salesの合計")
+                assert result is None
+
+    def test_ask_with_llm_code_validation_fails(self, sample_df: pd.DataFrame):
+        """コード検証が失敗した場合"""
+        with patch.dict("sys.modules", {"openai": Mock()}):
+            analyzer = InsightAnalyzer(sample_df, use_llm=True)
+            if analyzer._llm_handler:
+                from src.llm_handler import LLMResponse
+                # 危険なコードを返す
+                mock_response = LLMResponse(success=True, pandas_code="import os; os.system('rm -rf /')")
+                analyzer._llm_handler.generate_code = Mock(return_value=mock_response)
+                analyzer._llm_handler._available = True
+
+                result = analyzer._ask_with_llm("salesの合計")
+                assert result is None
+
+    def test_ask_with_llm_exec_exception(self, sample_df: pd.DataFrame):
+        """コード実行時に例外が発生した場合"""
+        with patch.dict("sys.modules", {"openai": Mock()}):
+            analyzer = InsightAnalyzer(sample_df, use_llm=True)
+            if analyzer._llm_handler:
+                from src.llm_handler import LLMResponse
+                # 構文エラーを含むコードを返す
+                mock_response = LLMResponse(success=True, pandas_code="result = invalid_syntax(")
+                analyzer._llm_handler.generate_code = Mock(return_value=mock_response)
+                analyzer._llm_handler._available = True
+
+                # validate_codeをモックして通過させる
+                from src.executor import SafeExecutor
+                original_validate = SafeExecutor.validate_code
+                SafeExecutor.validate_code = Mock(return_value=True)
+
+                try:
+                    result = analyzer._ask_with_llm("salesの合計")
+                    assert result is None
+                finally:
+                    SafeExecutor.validate_code = original_validate
+
+    def test_ask_with_llm_result_is_series(self, sample_df: pd.DataFrame):
+        """結果がSeriesの場合"""
+        with patch.dict("sys.modules", {"openai": Mock()}):
+            analyzer = InsightAnalyzer(sample_df, use_llm=True)
+            if analyzer._llm_handler:
+                from src.llm_handler import LLMResponse
+                # Seriesを返すコード
+                mock_response = LLMResponse(
+                    success=True,
+                    pandas_code="result = df['sales']"
+                )
+                analyzer._llm_handler.generate_code = Mock(return_value=mock_response)
+                analyzer._llm_handler._available = True
+
+                result = analyzer._ask_with_llm("salesを取得")
+                assert result is not None
+                assert result.success is True
+                assert result.data is not None
+
+    def test_ask_with_llm_result_is_int(self, sample_df: pd.DataFrame):
+        """結果が整数の場合"""
+        with patch.dict("sys.modules", {"openai": Mock()}):
+            analyzer = InsightAnalyzer(sample_df, use_llm=True)
+            if analyzer._llm_handler:
+                from src.llm_handler import LLMResponse
+                # int()だけだと__builtins__制限に引っかかるので、Pandasの計算のみ
+                mock_response = LLMResponse(
+                    success=True,
+                    pandas_code="result = df['sales'].sum()"
+                )
+                analyzer._llm_handler.generate_code = Mock(return_value=mock_response)
+                analyzer._llm_handler._available = True
+
+                result = analyzer._ask_with_llm("salesの合計")
+                assert result is not None
+                assert result.success is True
+
+    def test_ask_with_llm_result_is_string(self, sample_df: pd.DataFrame):
+        """結果が文字列の場合"""
+        with patch.dict("sys.modules", {"openai": Mock()}):
+            analyzer = InsightAnalyzer(sample_df, use_llm=True)
+            if analyzer._llm_handler:
+                from src.llm_handler import LLMResponse
+                mock_response = LLMResponse(
+                    success=True,
+                    pandas_code="result = 'テスト結果'"
+                )
+                analyzer._llm_handler.generate_code = Mock(return_value=mock_response)
+                analyzer._llm_handler._available = True
+
+                result = analyzer._ask_with_llm("テスト")
+                assert result is not None
+                assert result.success is True
+                assert "テスト結果" in result.answer
+
+    def test_ask_with_llm_with_chart_generation(self, sample_df: pd.DataFrame):
+        """チャート生成付きLLMクエリ"""
+        with patch.dict("sys.modules", {"openai": Mock()}):
+            analyzer = InsightAnalyzer(sample_df, use_llm=True)
+            if analyzer._llm_handler:
+                from src.llm_handler import LLMResponse
+                mock_response = LLMResponse(
+                    success=True,
+                    pandas_code="result = df.groupby('region')['sales'].sum()"
+                )
+                analyzer._llm_handler.generate_code = Mock(return_value=mock_response)
+                analyzer._llm_handler._available = True
+
+                result = analyzer._ask_with_llm("地域別売上", generate_chart=True)
+                assert result is not None
+                assert result.success is True
+
+    def test_ask_with_llm_with_explain_result(self, sample_df: pd.DataFrame):
+        """結果説明付きLLMクエリ"""
+        with patch.dict("sys.modules", {"openai": Mock()}):
+            analyzer = InsightAnalyzer(sample_df, use_llm=True)
+            if analyzer._llm_handler:
+                from src.llm_handler import LLMResponse
+                code_response = LLMResponse(
+                    success=True,
+                    pandas_code="result = df['sales'].sum()"
+                )
+                explain_resp = LLMResponse(
+                    success=True,
+                    explanation="売上合計は4500円です"
+                )
+                analyzer._llm_handler.generate_code = Mock(return_value=code_response)
+                analyzer._llm_handler.explain_result = Mock(return_value=explain_resp)
+                analyzer._llm_handler._available = True
+
+                result = analyzer._ask_with_llm("売上合計", explain_result=True)
+                assert result is not None
+                assert result.success is True
+                assert result.llm_explanation == "売上合計は4500円です"
+
+
+class TestExplainResultIntegration:
+    """explain_result統合テスト"""
+
+    @pytest.fixture
+    def sample_df(self) -> pd.DataFrame:
+        return pd.DataFrame({
+            "region": ["東京", "大阪"],
+            "sales": [1000, 2000],
+        })
+
+    def test_ask_with_explain_result_fallback_mode(self, sample_df: pd.DataFrame):
+        """フォールバックモードでのexplain_result"""
+        with patch.dict("sys.modules", {"openai": Mock()}):
+            analyzer = InsightAnalyzer(sample_df, use_llm=True)
+            if analyzer._llm_handler:
+                from src.llm_handler import LLMResponse
+                explain_resp = LLMResponse(
+                    success=True,
+                    explanation="売上合計は3000円です"
+                )
+                # generate_codeは失敗させてフォールバックさせる
+                analyzer._llm_handler.generate_code = Mock(return_value=LLMResponse(success=False))
+                analyzer._llm_handler.explain_result = Mock(return_value=explain_resp)
+                analyzer._llm_handler._available = True
+                # is_availableプロパティをモック
+                type(analyzer._llm_handler).is_available = property(lambda self: True)
+
+                result = analyzer.ask("salesの合計", explain_result=True)
+                assert result.success is True
+
+    def test_ask_with_explain_result_failure(self, sample_df: pd.DataFrame):
+        """explain_resultが失敗した場合"""
+        with patch.dict("sys.modules", {"openai": Mock()}):
+            analyzer = InsightAnalyzer(sample_df, use_llm=True)
+            if analyzer._llm_handler:
+                from src.llm_handler import LLMResponse
+                code_resp = LLMResponse(success=False)
+                explain_resp = LLMResponse(success=False, explanation=None)
+                analyzer._llm_handler.generate_code = Mock(return_value=code_resp)
+                analyzer._llm_handler.explain_result = Mock(return_value=explain_resp)
+                analyzer._llm_handler._available = True
+                # is_availableプロパティをモック
+                type(analyzer._llm_handler).is_available = property(lambda self: True)
+
+                result = analyzer.ask("salesの合計", explain_result=True)
+                # フォールバックで成功するはず
+                assert result.success is True
+
+
+class TestFormatAnswerEdgeCases:
+    """_format_answer のエッジケーステスト"""
+
+    @pytest.fixture
+    def analyzer(self) -> InsightAnalyzer:
+        df = pd.DataFrame({
+            "region": ["東京", "大阪"],
+            "金額": [1000, 2000],
+            "price": [500, 600],
+        })
+        return InsightAnalyzer(df, use_llm=False)
+
+    def test_format_answer_with_data_fallback(self, analyzer: InsightAnalyzer):
+        """データありで未知のクエリタイプ"""
+        result = analyzer.ask("データを表示して")
+        assert result.success is True
+
+    def test_format_answer_no_result(self):
+        """結果がない場合"""
+        df = pd.DataFrame({"a": []})
+        analyzer = InsightAnalyzer(df, use_llm=False)
+        # 空のDataFrameでの集計
+        result = analyzer.ask("合計")
+        # エラーまたはデフォルトメッセージ
+        assert result.success is False or result.answer
+
+
+class TestFormatGroupbyAnswerEdgeCases:
+    """_format_groupby_answer のエッジケーステスト"""
+
+    @pytest.fixture
+    def analyzer(self) -> InsightAnalyzer:
+        df = pd.DataFrame({
+            "category": ["A", "B", "A", "B"],
+            "金額": [1000, 2000, 1500, 2500],
+            "count": [1, 2, 1, 2],
+        })
+        return InsightAnalyzer(df, use_llm=False)
+
+    def test_format_groupby_with_japanese_currency_column(self, analyzer: InsightAnalyzer):
+        """日本語の金額カラム"""
+        result = analyzer.ask("category別の金額合計")
+        assert result.success is True
+        assert result.data is not None
+
+    def test_format_groupby_series_result(self):
+        """Seriesとしての結果"""
+        df = pd.DataFrame({
+            "region": ["東京", "東京", "大阪"],
+            "value": [1, 2, 3],
+        })
+        analyzer = InsightAnalyzer(df, use_llm=False)
+        result = analyzer.ask("region別の件数")
+        assert result.success is True
+
+    def test_format_groupby_non_numeric_values(self):
+        """非数値の値を含むグループ集計"""
+        df = pd.DataFrame({
+            "group": ["A", "B"],
+            "label": ["ラベル1", "ラベル2"],
+            "value": [1, 2],
+        })
+        analyzer = InsightAnalyzer(df, use_llm=False)
+        result = analyzer.ask("group別の件数")
+        assert result.success is True
+
+
+class TestGetInsightsEdgeCases:
+    """get_insights のエッジケーステスト"""
+
+    def test_get_insights_no_data(self):
+        """データなしの場合"""
+        analyzer = InsightAnalyzer(use_llm=False)
+        insights = analyzer.get_insights()
+        assert "読み込まれていません" in insights[0]
+
+    def test_get_insights_no_numeric_columns(self):
+        """数値カラムなしの場合"""
+        df = pd.DataFrame({
+            "name": ["A", "B", "C"],
+            "category": ["X", "Y", "Z"],
+        })
+        analyzer = InsightAnalyzer(df, use_llm=False)
+        insights = analyzer.get_insights()
+        # 基本情報は含まれる
+        assert any("件" in i for i in insights)
+
+    def test_get_insights_many_numeric_columns(self):
+        """多くの数値カラムがある場合"""
+        df = pd.DataFrame({
+            "col1": [1, 2, 3],
+            "col2": [4, 5, 6],
+            "col3": [7, 8, 9],
+            "col4": [10, 11, 12],
+            "col5": [13, 14, 15],
+        })
+        analyzer = InsightAnalyzer(df, use_llm=False)
+        insights = analyzer.get_insights()
+        # 最大3カラムの統計が含まれる
+        assert len(insights) >= 2
+
+
+class TestMainFunction:
+    """main() 関数のテスト"""
+
+    def test_main_no_args(self, capsys):
+        """引数なしでmain()を呼び出し"""
+        from src.insight_analyzer import main
+        import sys
+
+        original_argv = sys.argv
+        sys.argv = ["insight_analyzer.py"]
+
+        try:
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+            assert exc_info.value.code == 1
+
+            captured = capsys.readouterr()
+            assert "使用方法" in captured.out
+        finally:
+            sys.argv = original_argv
+
+    def test_main_with_file_path(self, capsys, tmp_path):
+        """ファイルパス指定でmain()を呼び出し"""
+        from src.insight_analyzer import main
+        import sys
+
+        # テスト用CSVを作成
+        csv_path = tmp_path / "test.csv"
+        df = pd.DataFrame({
+            "region": ["東京", "大阪"],
+            "sales": [1000, 2000],
+        })
+        df.to_csv(csv_path, index=False)
+
+        original_argv = sys.argv
+        sys.argv = ["insight_analyzer.py", str(csv_path), "--no-llm"]
+
+        # 入力をモック
+        original_input = __builtins__["input"] if isinstance(__builtins__, dict) else getattr(__builtins__, "input")
+
+        inputs = iter(["quit"])
+        def mock_input(prompt=""):
+            return next(inputs)
+
+        if isinstance(__builtins__, dict):
+            __builtins__["input"] = mock_input
+        else:
+            setattr(__builtins__, "input", mock_input)
+
+        try:
+            main()
+            captured = capsys.readouterr()
+            assert "読み込み完了" in captured.out
+        finally:
+            sys.argv = original_argv
+            if isinstance(__builtins__, dict):
+                __builtins__["input"] = original_input
+            else:
+                setattr(__builtins__, "input", original_input)
+
+    def test_main_with_chart_option(self, capsys, tmp_path):
+        """--chart オプション付きでmain()を呼び出し"""
+        from src.insight_analyzer import main
+        import sys
+
+        csv_path = tmp_path / "test.csv"
+        df = pd.DataFrame({
+            "region": ["東京", "大阪"],
+            "sales": [1000, 2000],
+        })
+        df.to_csv(csv_path, index=False)
+
+        original_argv = sys.argv
+        sys.argv = ["insight_analyzer.py", str(csv_path), "--no-llm", "--chart"]
+
+        inputs = iter(["quit"])
+
+        original_input = __builtins__["input"] if isinstance(__builtins__, dict) else getattr(__builtins__, "input")
+
+        def mock_input(prompt=""):
+            return next(inputs)
+
+        if isinstance(__builtins__, dict):
+            __builtins__["input"] = mock_input
+        else:
+            setattr(__builtins__, "input", mock_input)
+
+        try:
+            main()
+        finally:
+            sys.argv = original_argv
+            if isinstance(__builtins__, dict):
+                __builtins__["input"] = original_input
+            else:
+                setattr(__builtins__, "input", original_input)
+
+    def test_main_with_query(self, capsys, tmp_path):
+        """クエリ入力でmain()を呼び出し"""
+        from src.insight_analyzer import main
+        import sys
+
+        csv_path = tmp_path / "test.csv"
+        df = pd.DataFrame({
+            "region": ["東京", "大阪"],
+            "sales": [1000, 2000],
+        })
+        df.to_csv(csv_path, index=False)
+
+        original_argv = sys.argv
+        sys.argv = ["insight_analyzer.py", str(csv_path), "--no-llm"]
+
+        inputs = iter(["salesの合計", "quit"])
+
+        original_input = __builtins__["input"] if isinstance(__builtins__, dict) else getattr(__builtins__, "input")
+
+        def mock_input(prompt=""):
+            return next(inputs)
+
+        if isinstance(__builtins__, dict):
+            __builtins__["input"] = mock_input
+        else:
+            setattr(__builtins__, "input", mock_input)
+
+        try:
+            main()
+            captured = capsys.readouterr()
+            assert "合計" in captured.out
+        finally:
+            sys.argv = original_argv
+            if isinstance(__builtins__, dict):
+                __builtins__["input"] = original_input
+            else:
+                setattr(__builtins__, "input", original_input)
+
+    def test_main_with_empty_input(self, capsys, tmp_path):
+        """空入力でmain()を呼び出し"""
+        from src.insight_analyzer import main
+        import sys
+
+        csv_path = tmp_path / "test.csv"
+        df = pd.DataFrame({
+            "region": ["東京", "大阪"],
+            "sales": [1000, 2000],
+        })
+        df.to_csv(csv_path, index=False)
+
+        original_argv = sys.argv
+        sys.argv = ["insight_analyzer.py", str(csv_path), "--no-llm"]
+
+        inputs = iter(["", "exit"])
+
+        original_input = __builtins__["input"] if isinstance(__builtins__, dict) else getattr(__builtins__, "input")
+
+        def mock_input(prompt=""):
+            return next(inputs)
+
+        if isinstance(__builtins__, dict):
+            __builtins__["input"] = mock_input
+        else:
+            setattr(__builtins__, "input", mock_input)
+
+        try:
+            main()
+        finally:
+            sys.argv = original_argv
+            if isinstance(__builtins__, dict):
+                __builtins__["input"] = original_input
+            else:
+                setattr(__builtins__, "input", original_input)
+
+    def test_main_with_chart_prefix(self, capsys, tmp_path):
+        """'chart 'プレフィックス付きクエリ"""
+        from src.insight_analyzer import main
+        import sys
+
+        csv_path = tmp_path / "test.csv"
+        df = pd.DataFrame({
+            "region": ["東京", "大阪"],
+            "sales": [1000, 2000],
+        })
+        df.to_csv(csv_path, index=False)
+
+        original_argv = sys.argv
+        sys.argv = ["insight_analyzer.py", str(csv_path), "--no-llm"]
+
+        inputs = iter(["chart 地域別売上", "q"])
+
+        original_input = __builtins__["input"] if isinstance(__builtins__, dict) else getattr(__builtins__, "input")
+
+        def mock_input(prompt=""):
+            return next(inputs)
+
+        if isinstance(__builtins__, dict):
+            __builtins__["input"] = mock_input
+        else:
+            setattr(__builtins__, "input", mock_input)
+
+        try:
+            main()
+        finally:
+            sys.argv = original_argv
+            if isinstance(__builtins__, dict):
+                __builtins__["input"] = original_input
+            else:
+                setattr(__builtins__, "input", original_input)
+
+    def test_main_with_error_result(self, capsys, tmp_path):
+        """エラー結果を返すクエリ"""
+        from src.insight_analyzer import main
+        import sys
+
+        csv_path = tmp_path / "test.csv"
+        df = pd.DataFrame({
+            "region": ["東京", "大阪"],
+            "category": ["A", "B"],
+        })
+        df.to_csv(csv_path, index=False)
+
+        original_argv = sys.argv
+        sys.argv = ["insight_analyzer.py", str(csv_path), "--no-llm"]
+
+        inputs = iter(["非存在カラムの合計", "quit"])
+
+        original_input = __builtins__["input"] if isinstance(__builtins__, dict) else getattr(__builtins__, "input")
+
+        def mock_input(prompt=""):
+            return next(inputs)
+
+        if isinstance(__builtins__, dict):
+            __builtins__["input"] = mock_input
+        else:
+            setattr(__builtins__, "input", mock_input)
+
+        try:
+            main()
+            captured = capsys.readouterr()
+            # エラーメッセージが出力される
+            assert "エラー" in captured.out or "見つかりません" in captured.out
+        finally:
+            sys.argv = original_argv
+            if isinstance(__builtins__, dict):
+                __builtins__["input"] = original_input
+            else:
+                setattr(__builtins__, "input", original_input)
+
+    def test_main_keyboard_interrupt(self, capsys, tmp_path):
+        """KeyboardInterruptのテスト"""
+        from src.insight_analyzer import main
+        import sys
+
+        csv_path = tmp_path / "test.csv"
+        df = pd.DataFrame({
+            "region": ["東京", "大阪"],
+            "sales": [1000, 2000],
+        })
+        df.to_csv(csv_path, index=False)
+
+        original_argv = sys.argv
+        sys.argv = ["insight_analyzer.py", str(csv_path), "--no-llm"]
+
+        call_count = 0
+        def mock_input(prompt=""):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise KeyboardInterrupt()
+            return "quit"
+
+        original_input = __builtins__["input"] if isinstance(__builtins__, dict) else getattr(__builtins__, "input")
+
+        if isinstance(__builtins__, dict):
+            __builtins__["input"] = mock_input
+        else:
+            setattr(__builtins__, "input", mock_input)
+
+        try:
+            main()
+            captured = capsys.readouterr()
+            assert "終了" in captured.out
+        finally:
+            sys.argv = original_argv
+            if isinstance(__builtins__, dict):
+                __builtins__["input"] = original_input
+            else:
+                setattr(__builtins__, "input", original_input)
+
+    def test_main_eof_error(self, capsys, tmp_path):
+        """EOFErrorのテスト"""
+        from src.insight_analyzer import main
+        import sys
+
+        csv_path = tmp_path / "test.csv"
+        df = pd.DataFrame({
+            "region": ["東京", "大阪"],
+            "sales": [1000, 2000],
+        })
+        df.to_csv(csv_path, index=False)
+
+        original_argv = sys.argv
+        sys.argv = ["insight_analyzer.py", str(csv_path), "--no-llm"]
+
+        def mock_input(prompt=""):
+            raise EOFError()
+
+        original_input = __builtins__["input"] if isinstance(__builtins__, dict) else getattr(__builtins__, "input")
+
+        if isinstance(__builtins__, dict):
+            __builtins__["input"] = mock_input
+        else:
+            setattr(__builtins__, "input", mock_input)
+
+        try:
+            main()
+        finally:
+            sys.argv = original_argv
+            if isinstance(__builtins__, dict):
+                __builtins__["input"] = original_input
+            else:
+                setattr(__builtins__, "input", original_input)
+
+
+class TestMainWithLLM:
+    """main() 関数のLLM関連テスト"""
+
+    def test_main_llm_available_message(self, capsys, tmp_path):
+        """LLM有効時のメッセージ"""
+        from src.insight_analyzer import main
+        import sys
+
+        csv_path = tmp_path / "test.csv"
+        df = pd.DataFrame({
+            "region": ["東京", "大阪"],
+            "sales": [1000, 2000],
+        })
+        df.to_csv(csv_path, index=False)
+
+        original_argv = sys.argv
+        # --no-llmを指定しない
+        sys.argv = ["insight_analyzer.py", str(csv_path)]
+
+        inputs = iter(["quit"])
+
+        original_input = __builtins__["input"] if isinstance(__builtins__, dict) else getattr(__builtins__, "input")
+
+        def mock_input(prompt=""):
+            return next(inputs)
+
+        if isinstance(__builtins__, dict):
+            __builtins__["input"] = mock_input
+        else:
+            setattr(__builtins__, "input", mock_input)
+
+        try:
+            main()
+            captured = capsys.readouterr()
+            # LLM関連のメッセージが出力される
+            assert "LLM統合" in captured.out
+        finally:
+            sys.argv = original_argv
+            if isinstance(__builtins__, dict):
+                __builtins__["input"] = original_input
+            else:
+                setattr(__builtins__, "input", original_input)
+
+    def test_main_with_explain_option(self, capsys, tmp_path):
+        """--explain オプション付きでmain()を呼び出し"""
+        from src.insight_analyzer import main
+        import sys
+
+        csv_path = tmp_path / "test.csv"
+        df = pd.DataFrame({
+            "region": ["東京", "大阪"],
+            "sales": [1000, 2000],
+        })
+        df.to_csv(csv_path, index=False)
+
+        original_argv = sys.argv
+        sys.argv = ["insight_analyzer.py", str(csv_path), "--no-llm", "--explain"]
+
+        inputs = iter(["salesの合計", "quit"])
+
+        original_input = __builtins__["input"] if isinstance(__builtins__, dict) else getattr(__builtins__, "input")
+
+        def mock_input(prompt=""):
+            return next(inputs)
+
+        if isinstance(__builtins__, dict):
+            __builtins__["input"] = mock_input
+        else:
+            setattr(__builtins__, "input", mock_input)
+
+        try:
+            main()
+        finally:
+            sys.argv = original_argv
+            if isinstance(__builtins__, dict):
+                __builtins__["input"] = original_input
+            else:
+                setattr(__builtins__, "input", original_input)
+
+
+class TestMetaInfoOutput:
+    """メタ情報出力のテスト"""
+
+    def test_main_meta_info_with_query_code(self, capsys, tmp_path):
+        """クエリコード付きメタ情報"""
+        from src.insight_analyzer import main
+        import sys
+
+        csv_path = tmp_path / "test.csv"
+        df = pd.DataFrame({
+            "region": ["東京", "大阪"],
+            "sales": [1000, 2000],
+        })
+        df.to_csv(csv_path, index=False)
+
+        original_argv = sys.argv
+        sys.argv = ["insight_analyzer.py", str(csv_path), "--no-llm"]
+
+        inputs = iter(["salesの合計", "quit"])
+
+        original_input = __builtins__["input"] if isinstance(__builtins__, dict) else getattr(__builtins__, "input")
+
+        def mock_input(prompt=""):
+            return next(inputs)
+
+        if isinstance(__builtins__, dict):
+            __builtins__["input"] = mock_input
+        else:
+            setattr(__builtins__, "input", mock_input)
+
+        try:
+            main()
+            captured = capsys.readouterr()
+            # 実行時間などのメタ情報
+            assert "実行時間" in captured.out or "ms" in captured.out
+        finally:
+            sys.argv = original_argv
+            if isinstance(__builtins__, dict):
+                __builtins__["input"] = original_input
+            else:
+                setattr(__builtins__, "input", original_input)
+
+
+class TestAnalysisResultDataclass:
+    """AnalysisResultデータクラスのテスト"""
+
+    def test_analysis_result_defaults(self):
+        """デフォルト値のテスト"""
+        result = AnalysisResult(answer="テスト回答")
+        assert result.answer == "テスト回答"
+        assert result.data is None
+        assert result.chart_path is None
+        assert result.query_used is None
+        assert result.success is True
+        assert result.error is None
+        assert result.execution_time_ms == 0.0
+        assert result.confidence == 1.0
+        assert result.llm_explanation is None
+        assert result.llm_used is False
+
+    def test_analysis_result_full_fields(self):
+        """全フィールド指定のテスト"""
+        df = pd.DataFrame({"a": [1, 2, 3]})
+        result = AnalysisResult(
+            answer="回答",
+            data=df,
+            chart_path="/path/to/chart.png",
+            query_used="df['a'].sum()",
+            success=True,
+            error=None,
+            execution_time_ms=123.45,
+            confidence=0.95,
+            llm_explanation="説明テキスト",
+            llm_used=True,
+        )
+        assert result.answer == "回答"
+        assert result.data is not None
+        assert result.chart_path == "/path/to/chart.png"
+        assert result.execution_time_ms == 123.45
+        assert result.llm_used is True

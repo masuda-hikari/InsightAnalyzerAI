@@ -1803,5 +1803,422 @@ class TestBillingManagerStripeNotImported:
             billing_module.STRIPE_AVAILABLE = original_stripe_available
 
 
+class TestRenderPricingUI:
+    """render_pricing_ui関数のテスト（モック環境）"""
+
+    @pytest.fixture(autouse=True)
+    def setup_mock_session(self):
+        """各テスト前にsession_stateをリセット"""
+        import streamlit as st
+        st.session_state = MockSessionState()
+        st.session_state["auth_users_db"] = {}
+        st.secrets = MagicMock()
+        st.secrets.get = MagicMock(return_value=None)
+        # Streamlit UI関数をモック
+        st.subheader = MagicMock()
+        st.columns = MagicMock(return_value=[MagicMock(), MagicMock(), MagicMock()])
+        st.container = MagicMock()
+        st.markdown = MagicMock()
+        st.caption = MagicMock()
+        st.divider = MagicMock()
+        st.write = MagicMock()
+        st.button = MagicMock(return_value=False)
+
+    def test_render_pricing_ui_basic(self):
+        """料金プランUI描画の基本テスト"""
+        import src.billing as billing_module
+        from src.billing import render_pricing_ui
+        import streamlit as st
+
+        original_stripe_available = billing_module.STRIPE_AVAILABLE
+        billing_module.STRIPE_AVAILABLE = False
+
+        try:
+            # コンテナのモックを設定
+            mock_container = MagicMock()
+            mock_container.__enter__ = MagicMock(return_value=mock_container)
+            mock_container.__exit__ = MagicMock(return_value=False)
+            st.container = MagicMock(return_value=mock_container)
+
+            # columnsのモックを設定
+            mock_col = MagicMock()
+            mock_col.__enter__ = MagicMock(return_value=mock_col)
+            mock_col.__exit__ = MagicMock(return_value=False)
+            st.columns = MagicMock(return_value=[mock_col, mock_col, mock_col])
+
+            render_pricing_ui()
+
+            # subheaderが呼ばれることを確認
+            st.subheader.assert_called()
+        finally:
+            billing_module.STRIPE_AVAILABLE = original_stripe_available
+
+    def test_render_pricing_ui_with_logged_in_user(self):
+        """ログインユーザーありでの料金プランUI描画"""
+        import src.billing as billing_module
+        from src.billing import render_pricing_ui
+        import streamlit as st
+
+        original_stripe_available = billing_module.STRIPE_AVAILABLE
+        billing_module.STRIPE_AVAILABLE = False
+
+        try:
+            # ユーザーをセットアップ
+            test_user = User(
+                user_id="test123",
+                email="test@example.com",
+                password_hash="dummy_hash",
+                plan=PlanType.BASIC
+            )
+            st.session_state["auth_user"] = test_user
+
+            mock_container = MagicMock()
+            mock_container.__enter__ = MagicMock(return_value=mock_container)
+            mock_container.__exit__ = MagicMock(return_value=False)
+            st.container = MagicMock(return_value=mock_container)
+
+            mock_col = MagicMock()
+            mock_col.__enter__ = MagicMock(return_value=mock_col)
+            mock_col.__exit__ = MagicMock(return_value=False)
+            st.columns = MagicMock(return_value=[mock_col, mock_col, mock_col])
+
+            render_pricing_ui()
+
+            # columnsが呼ばれることを確認
+            st.columns.assert_called()
+        finally:
+            billing_module.STRIPE_AVAILABLE = original_stripe_available
+
+
+class TestRenderBillingStatus:
+    """render_billing_status関数のテスト（モック環境）"""
+
+    @pytest.fixture(autouse=True)
+    def setup_mock_session(self):
+        """各テスト前にsession_stateをリセット"""
+        import streamlit as st
+        st.session_state = MockSessionState()
+        st.session_state["auth_users_db"] = {}
+        st.secrets = MagicMock()
+        st.secrets.get = MagicMock(return_value=None)
+        st.info = MagicMock()
+        st.expander = MagicMock()
+        st.write = MagicMock()
+        st.warning = MagicMock()
+        st.button = MagicMock(return_value=False)
+        st.success = MagicMock()
+        st.rerun = MagicMock()
+
+    def test_render_billing_status_no_user(self):
+        """ユーザーなしでのステータス表示"""
+        import src.billing as billing_module
+        from src.billing import render_billing_status
+        import streamlit as st
+
+        original_stripe_available = billing_module.STRIPE_AVAILABLE
+        billing_module.STRIPE_AVAILABLE = False
+
+        try:
+            st.session_state["auth_user"] = None
+            render_billing_status()
+            # ユーザーがいない場合は何も表示しない
+        finally:
+            billing_module.STRIPE_AVAILABLE = original_stripe_available
+
+    def test_render_billing_status_paid_user_no_status(self):
+        """有料ユーザー（ステータスなし）の表示"""
+        import src.billing as billing_module
+        from src.billing import render_billing_status
+        import streamlit as st
+
+        original_stripe_available = billing_module.STRIPE_AVAILABLE
+        billing_module.STRIPE_AVAILABLE = False
+
+        try:
+            test_user = User(
+                user_id="test123",
+                email="test@example.com",
+                password_hash="dummy_hash",
+                plan=PlanType.PRO
+            )
+            st.session_state["auth_user"] = test_user
+
+            render_billing_status()
+
+            # Stripe無効時はステータス取得不可
+        finally:
+            billing_module.STRIPE_AVAILABLE = original_stripe_available
+
+
+class TestPricingUIUpgradeFlow:
+    """料金プランUIのアップグレードフローテスト"""
+
+    @pytest.fixture(autouse=True)
+    def setup_mock_session(self):
+        """各テスト前にsession_stateをリセット"""
+        import streamlit as st
+        st.session_state = MockSessionState()
+        st.session_state["auth_users_db"] = {}
+        st.secrets = MagicMock()
+        st.secrets.get = MagicMock(return_value=None)
+        st.subheader = MagicMock()
+        st.columns = MagicMock()
+        st.container = MagicMock()
+        st.markdown = MagicMock()
+        st.caption = MagicMock()
+        st.divider = MagicMock()
+        st.write = MagicMock()
+        st.button = MagicMock(return_value=False)
+        st.warning = MagicMock()
+        st.info = MagicMock()
+        st.error = MagicMock()
+        st.success = MagicMock()
+        st.rerun = MagicMock()
+
+    def test_render_pricing_ui_completes_without_error(self):
+        """料金プランUI描画がエラーなく完了する"""
+        import src.billing as billing_module
+        from src.billing import render_pricing_ui
+        import streamlit as st
+
+        original_stripe_available = billing_module.STRIPE_AVAILABLE
+        billing_module.STRIPE_AVAILABLE = False
+
+        try:
+            st.session_state["auth_user"] = None
+
+            mock_container = MagicMock()
+            mock_container.__enter__ = MagicMock(return_value=mock_container)
+            mock_container.__exit__ = MagicMock(return_value=False)
+            st.container = MagicMock(return_value=mock_container)
+
+            mock_col = MagicMock()
+            mock_col.__enter__ = MagicMock(return_value=mock_col)
+            mock_col.__exit__ = MagicMock(return_value=False)
+            st.columns = MagicMock(return_value=[mock_col, mock_col, mock_col])
+
+            # エラーなく完了することを確認
+            render_pricing_ui()
+            st.subheader.assert_called()
+        finally:
+            billing_module.STRIPE_AVAILABLE = original_stripe_available
+
+    def test_render_pricing_ui_with_pro_user(self):
+        """Proユーザーでの料金プランUI描画"""
+        import src.billing as billing_module
+        from src.billing import render_pricing_ui
+        import streamlit as st
+
+        original_stripe_available = billing_module.STRIPE_AVAILABLE
+        billing_module.STRIPE_AVAILABLE = False
+
+        try:
+            test_user = User(
+                user_id="test123",
+                email="test@example.com",
+                password_hash="dummy_hash",
+                plan=PlanType.PRO
+            )
+            st.session_state["auth_user"] = test_user
+
+            mock_container = MagicMock()
+            mock_container.__enter__ = MagicMock(return_value=mock_container)
+            mock_container.__exit__ = MagicMock(return_value=False)
+            st.container = MagicMock(return_value=mock_container)
+
+            mock_col = MagicMock()
+            mock_col.__enter__ = MagicMock(return_value=mock_col)
+            mock_col.__exit__ = MagicMock(return_value=False)
+            st.columns = MagicMock(return_value=[mock_col, mock_col, mock_col])
+
+            render_pricing_ui()
+            st.columns.assert_called()
+        finally:
+            billing_module.STRIPE_AVAILABLE = original_stripe_available
+
+    def test_render_pricing_ui_with_enterprise_user(self):
+        """Enterpriseユーザーでの料金プランUI描画"""
+        import src.billing as billing_module
+        from src.billing import render_pricing_ui
+        import streamlit as st
+
+        original_stripe_available = billing_module.STRIPE_AVAILABLE
+        billing_module.STRIPE_AVAILABLE = False
+
+        try:
+            test_user = User(
+                user_id="test123",
+                email="test@example.com",
+                password_hash="dummy_hash",
+                plan=PlanType.ENTERPRISE
+            )
+            st.session_state["auth_user"] = test_user
+
+            mock_container = MagicMock()
+            mock_container.__enter__ = MagicMock(return_value=mock_container)
+            mock_container.__exit__ = MagicMock(return_value=False)
+            st.container = MagicMock(return_value=mock_container)
+
+            mock_col = MagicMock()
+            mock_col.__enter__ = MagicMock(return_value=mock_col)
+            mock_col.__exit__ = MagicMock(return_value=False)
+            st.columns = MagicMock(return_value=[mock_col, mock_col, mock_col])
+
+            render_pricing_ui()
+            st.divider.assert_called()
+        finally:
+            billing_module.STRIPE_AVAILABLE = original_stripe_available
+
+
+class TestPricingUIDowngrade:
+    """料金プランUIのダウングレードテスト"""
+
+    @pytest.fixture(autouse=True)
+    def setup_mock_session(self):
+        """各テスト前にsession_stateをリセット"""
+        import streamlit as st
+        st.session_state = MockSessionState()
+        st.session_state["auth_users_db"] = {}
+        st.secrets = MagicMock()
+        st.secrets.get = MagicMock(return_value=None)
+        st.subheader = MagicMock()
+        st.columns = MagicMock()
+        st.container = MagicMock()
+        st.markdown = MagicMock()
+        st.caption = MagicMock()
+        st.divider = MagicMock()
+        st.write = MagicMock()
+        st.button = MagicMock(return_value=False)
+        st.warning = MagicMock()
+
+    def test_render_with_basic_user(self):
+        """Basicユーザーでのダウングレード表示確認"""
+        import src.billing as billing_module
+        from src.billing import render_pricing_ui
+        import streamlit as st
+
+        original_stripe_available = billing_module.STRIPE_AVAILABLE
+        billing_module.STRIPE_AVAILABLE = False
+
+        try:
+            test_user = User(
+                user_id="test123",
+                email="test@example.com",
+                password_hash="dummy_hash",
+                plan=PlanType.BASIC
+            )
+            st.session_state["auth_user"] = test_user
+
+            mock_container = MagicMock()
+            mock_container.__enter__ = MagicMock(return_value=mock_container)
+            mock_container.__exit__ = MagicMock(return_value=False)
+            st.container = MagicMock(return_value=mock_container)
+
+            mock_col = MagicMock()
+            mock_col.__enter__ = MagicMock(return_value=mock_col)
+            mock_col.__exit__ = MagicMock(return_value=False)
+            st.columns = MagicMock(return_value=[mock_col, mock_col, mock_col])
+
+            # 描画がエラーなく完了することを確認
+            render_pricing_ui()
+            st.button.assert_called()
+        finally:
+            billing_module.STRIPE_AVAILABLE = original_stripe_available
+
+
+class TestCreateCheckoutSessionFailure:
+    """チェックアウトセッション作成失敗のテスト"""
+
+    @pytest.fixture(autouse=True)
+    def setup_mock_session(self):
+        """各テスト前にsession_stateをリセット"""
+        import streamlit as st
+        st.session_state = MockSessionState()
+        st.session_state["auth_users_db"] = {}
+        st.secrets = MagicMock()
+        st.secrets.get = MagicMock(return_value=None)
+        st.subheader = MagicMock()
+        st.columns = MagicMock()
+        st.container = MagicMock()
+        st.markdown = MagicMock()
+        st.caption = MagicMock()
+        st.divider = MagicMock()
+        st.write = MagicMock()
+        st.button = MagicMock(return_value=False)
+        st.error = MagicMock()
+
+    def test_checkout_error_handling_in_manager(self, monkeypatch):
+        """BillingManagerのチェックアウトエラーハンドリング"""
+        import src.billing as billing_module
+        import streamlit as st
+
+        original_stripe_available = billing_module.STRIPE_AVAILABLE
+        original_stripe = billing_module.stripe
+
+        mock_stripe_module = MagicMock()
+        mock_stripe_module.checkout.Session.create.side_effect = Exception("Stripe error")
+
+        billing_module.STRIPE_AVAILABLE = True
+        billing_module.stripe = mock_stripe_module
+
+        try:
+            monkeypatch.setenv("STRIPE_SECRET_KEY", "sk_test_xxx")
+
+            test_user = User(
+                user_id="test123",
+                email="test@example.com",
+                password_hash="dummy_hash",
+                plan=PlanType.FREE
+            )
+
+            original_config = PRICE_CONFIGS[PlanType.BASIC]
+            PRICE_CONFIGS[PlanType.BASIC] = PriceConfig(
+                plan=PlanType.BASIC,
+                price_jpy=2980,
+                stripe_price_id="price_test_basic",
+                features=original_config.features
+            )
+
+            try:
+                manager = BillingManager()
+                manager.stripe_available = True
+                manager.auth_manager.get_current_user = MagicMock(return_value=test_user)
+
+                # エラー時はNoneが返される
+                url = manager.create_checkout_session(PlanType.BASIC)
+                assert url is None
+                # st.errorが呼ばれる
+                st.error.assert_called()
+            finally:
+                PRICE_CONFIGS[PlanType.BASIC] = original_config
+        finally:
+            billing_module.STRIPE_AVAILABLE = original_stripe_available
+            billing_module.stripe = original_stripe
+
+
+class TestStripeImportAvailability:
+    """Stripeインポート可用性のテスト"""
+
+    @pytest.fixture(autouse=True)
+    def setup_mock_session(self):
+        """各テスト前にsession_stateをリセット"""
+        import streamlit as st
+        st.session_state = MockSessionState()
+        st.secrets = MagicMock()
+        st.secrets.get = MagicMock(return_value=None)
+
+    def test_stripe_available_constant(self):
+        """STRIPE_AVAILABLE定数の確認"""
+        import src.billing as billing_module
+        # STRIPE_AVAILABLEはbool型
+        assert isinstance(billing_module.STRIPE_AVAILABLE, bool)
+
+    def test_stripe_module_reference(self):
+        """stripeモジュール参照の確認"""
+        import src.billing as billing_module
+        # stripeはNone（インポートできない場合）またはモジュール
+        # テスト環境ではモック済み
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

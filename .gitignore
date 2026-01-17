@@ -66,3 +66,15 @@ temp/
 Desktop.ini
 .Spotlight-V100
 .Trashes
+
+# ===================================
+# 機密・内部情報（公開禁止）
+# ===================================
+.claude/settings.local.json
+.claude/DEVELOPMENT_LOG.md
+.claude/REVENUE_METRICS.md
+.claude/SESSION_REPORT.md
+DEVELOPMENT_LOG.md
+logs/
+docs/legal.html
+site/legal.html

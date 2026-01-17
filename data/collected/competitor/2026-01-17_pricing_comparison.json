@@ -1,0 +1,65 @@
+{
+  "collection_date": "2026-01-17",
+  "category": "competitor_pricing",
+  "topic": "主要BIツール料金比較（Tableau, Power BI, Looker）",
+  "data": {
+    "looker_studio": {
+      "pricing": "完全無料",
+      "features": [
+        "機能制限なし",
+        "Google製品との高い親和性",
+        "レポート共有無制限"
+      ],
+      "target_users": "個人・小規模事業者、コスト重視"
+    },
+    "power_bi": {
+      "pricing": {
+        "free": "Power BI Desktop（無料）",
+        "pro": "月額約$10（約1,000円）～",
+        "premium": "要問い合わせ"
+      },
+      "features": [
+        "高機能ながら安価",
+        "Microsoftエコシステムとの統合",
+        "急速なシェア拡大中"
+      ],
+      "target_users": "中小企業～大企業、コストパフォーマンス重視"
+    },
+    "tableau": {
+      "pricing": {
+        "public": "無料（公開データのみ）",
+        "creator": "要問い合わせ（ユーザー単位・月額）",
+        "note": "比較的高価格帯"
+      },
+      "features": [
+        "最高レベルの可視化機能",
+        "高度なデータ分析",
+        "企業向け本格BIツール"
+      ],
+      "target_users": "大企業、高度な分析ニーズ"
+    },
+    "insight_analyzer_ai_positioning": {
+      "competitive_advantage": [
+        "自然言語クエリ（LLM統合）でノーコード操作",
+        "Tableau級の機能をPower BI級の価格で提供",
+        "初心者でも即座に使える（学習コスト最小）",
+        "個人・中小企業に最適化された価格帯（¥2,980～）"
+      ],
+      "differentiation": "AIによる分析自動化 + 日本語対応 + シンプルUI"
+    }
+  },
+  "sources": [
+    {
+      "title": "Power BI・Looker Studio・Tableau3選徹底比較",
+      "url": "https://hblab.co.jp/blog/power-bi-looker-studio-tableau/"
+    },
+    {
+      "title": "【徹底比較】Tableau,Looker Studio,Power BI",
+      "url": "https://www.medix-inc.co.jp/webbu/cloud_3bihikaku-11565"
+    },
+    {
+      "title": "5つのBIツールの長所と短所を比較する",
+      "url": "https://community.heartcount.io/ja/big-5-bi-tool/"
+    }
+  ]
+}

@@ -1,0 +1,69 @@
+{
+  "collection_date": "2026-01-17",
+  "category": "technology_trends",
+  "topic": "自然言語クエリ（NL to SQL）ツールとLLM活用",
+  "data": {
+    "key_tools_2026": [
+      {
+        "name": "Oracle Autonomous Database Select AI",
+        "description": "自然言語→SQL変換、LLM統合",
+        "features": ["スキーマ認識", "SQL知識不要", "高速クエリ生成"],
+        "url": "https://blogs.oracle.com/machinelearning/introducing-natural-language-to-sql-generation-on-autonomous-database"
+      },
+      {
+        "name": "Chat2DB",
+        "description": "AIパワード SQLクライアント",
+        "features": ["Text2SQL", "MySQL/Redis/MongoDB対応", "BIダッシュボード"],
+        "url": "https://chat2db.ai/"
+      },
+      {
+        "name": "Text2SQL.ai",
+        "description": "自然言語からSQL最適化クエリ生成",
+        "features": ["LLM活用", "スキーマ認識クエリ", "即座に実行可能なSQL"],
+        "url": "https://www.index.dev/blog/ai-tools-sql-generation-query-optimization"
+      },
+      {
+        "name": "dotData Enterprise",
+        "description": "ノーコード機械学習プラットフォーム",
+        "features": ["AutoML", "特徴量エンジニアリング自動化", "AI開発自動化"],
+        "url": "https://jp.dotdata.com/dotdata-enterprise/"
+      },
+      {
+        "name": "Databricks AI Playground",
+        "description": "LLMクエリ・AIエージェント開発",
+        "features": ["チャットインターフェース", "複数LLM比較", "ノーコード開発"],
+        "url": "https://docs.databricks.com/gcp/en/getting-started/gen-ai-llm-agent"
+      }
+    ],
+    "market_forecast": {
+      "llm_apps_by_2026": "7.5億アプリ",
+      "automation_rate": "デジタルタスクの50%自動化"
+    },
+    "key_trends": [
+      "自然言語インターフェースの普及（ノーコード化）",
+      "LLM統合によるSQL知識不要化",
+      "スキーマ認識・コンテキスト理解の高度化",
+      "企業向けAIエージェント開発の加速"
+    ],
+    "insight_analyzer_ai_advantage": [
+      "Pandas + LLM統合で柔軟なデータ処理",
+      "日本語自然言語クエリに特化",
+      "CSV/Excel直接対応（DB設定不要）",
+      "初心者向けシンプルUI"
+    ]
+  },
+  "sources": [
+    {
+      "title": "Introducing Select AI – Natural Language to SQL Generation",
+      "url": "https://blogs.oracle.com/machinelearning/introducing-natural-language-to-sql-generation-on-autonomous-database"
+    },
+    {
+      "title": "5 Best AI Tools for SQL Database Query Generation in 2026",
+      "url": "https://www.index.dev/blog/ai-tools-sql-generation-query-optimization"
+    },
+    {
+      "title": "LLMとは？ - 大規模言語モデルのデータアナリティクス応用",
+      "url": "https://jp.dotdata.com/blog/what-is-llm-data-analytics-applications-of-large-scale-language-models/"
+    }
+  ]
+}

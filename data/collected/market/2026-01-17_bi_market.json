@@ -1,0 +1,52 @@
+{
+  "collection_date": "2026-01-17",
+  "category": "market_data",
+  "topic": "BIツール市場規模・成長率",
+  "data": {
+    "japan_market": {
+      "2021": {
+        "total": "442億円",
+        "package": "351億円",
+        "saas": "91億円"
+      },
+      "2026_forecast": {
+        "total": "479億円",
+        "saas": "約200億円",
+        "growth_note": "パッケージ型からSaaS型へのシフトが進行中"
+      },
+      "growth_rate": {
+        "overall": "1.6%/年（総市場）",
+        "saas_cagr": "15-20%（SaaS型）"
+      }
+    },
+    "global_market": {
+      "2020": "205.16億米ドル",
+      "2026_forecast": "405.5億米ドル",
+      "2030_forecast": "562.8億米ドル",
+      "cagr_2021_2026": "12%"
+    },
+    "key_insights": [
+      "SaaS型BIツールの成長率が特に高い（15-20% CAGR）",
+      "グローバル市場は2倍成長見込み（2020→2026）",
+      "クラウド化・ノーコード化が主要トレンド",
+      "日本市場は控えめな成長（1.6%）だがSaaS化が加速"
+    ]
+  },
+  "sources": [
+    {
+      "title": "グローバルビジネスインテリジェンス（BI）市場",
+      "url": "https://www.mordorintelligence.com/ja/industry-reports/global-business-intelligence-bi-vendors-market-industry",
+      "publisher": "Mordor Intelligence"
+    },
+    {
+      "title": "国内BIツールの市場規模は？ビッグデータ・アナリティクス予測",
+      "url": "https://boxil.jp/mag/a3492/",
+      "publisher": "BOXIL Magazine",
+      "note": "富士キメラ総研データ引用"
+    },
+    {
+      "title": "BIツールの市場規模拡大の要因と今後の展望を解説",
+      "url": "https://strate.biz/bi/c_market-size-10/"
+    }
+  ]
+}
